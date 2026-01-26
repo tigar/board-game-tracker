@@ -1,0 +1,64 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.3.12/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/.svelte-kit",
+			"!**/build",
+			"!**/dist",
+			"!**/.claude",
+			"!**/.yarn",
+			"!**/.pnp.*"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineWidth": 100
+	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"noNonNullAssertion": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn"
+			},
+			"correctness": {
+				"noUnusedVariables": "off",
+				"noUnusedImports": "off"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.ts"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "warn",
+						"noUnusedImports": "warn"
+					}
+				}
+			}
+		}
+	],
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"trailingCommas": "es5",
+			"semicolons": "always"
+		}
+	}
+}

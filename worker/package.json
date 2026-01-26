@@ -1,0 +1,20 @@
+{
+	"name": "board-game-tracker-worker",
+	"version": "0.1.0",
+	"description": "Cloudflare Worker backend for board game tracker",
+	"type": "module",
+	"author": "Adam Tigar",
+	"license": "MIT",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"tail": "wrangler tail",
+		"db:init": "wrangler d1 execute board-game-tracker-db --local --file=./schema.sql",
+		"db:init:remote": "wrangler d1 execute board-game-tracker-db --remote --file=./schema.sql"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20241127.0",
+		"typescript": "^5.0.0",
+		"wrangler": "^3.0.0"
+	}
+}
