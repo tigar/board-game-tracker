@@ -21,20 +21,38 @@ export async function getGameById(db: D1Database, id: number): Promise<Game | nu
 }
 
 /**
- * Get a game by name
+ * Get a game by name (base games only)
  */
 export async function getGameByName(db: D1Database, name: string): Promise<Game | null> {
-	const result = await db.prepare('SELECT * FROM games WHERE name = ?').bind(name).first<Game>();
+	const result = await db
+		.prepare('SELECT * FROM games WHERE name = ? AND is_expansion = 0')
+		.bind(name)
+		.first<Game>();
 	return result;
 }
 
 /**
- * Create a new game
+ * Get expansions for a game
+ */
+export async function getExpansionsForGame(db: D1Database, gameId: number): Promise<Game[]> {
+	const result = await db
+		.prepare('SELECT * FROM games WHERE parent_game_id = ? ORDER BY name ASC')
+		.bind(gameId)
+		.all<Game>();
+	return result.results || [];
+}
+
+/**
+ * Create a new game or expansion
  */
 export async function createGame(db: D1Database, game: Game): Promise<number> {
+	// Generate a unique negative bgg_id for manually added games (to satisfy NOT NULL constraint)
+	// Negative IDs won't conflict with real BGG IDs which are always positive
+	const tempBggId = -Date.now();
+
 	const result = await db
-		.prepare('INSERT INTO games (name) VALUES (?)')
-		.bind(game.name)
+		.prepare('INSERT INTO games (name, bgg_id, is_expansion, parent_game_id) VALUES (?, ?, ?, ?)')
+		.bind(game.name, tempBggId, game.is_expansion ? 1 : 0, game.parent_game_id || null)
 		.run();
 
 	return result.meta.last_row_id as number;
@@ -45,8 +63,15 @@ export async function createGame(db: D1Database, game: Game): Promise<number> {
  */
 export async function updateGame(db: D1Database, id: number, game: Partial<Game>): Promise<void> {
 	await db
-		.prepare('UPDATE games SET name = COALESCE(?, name) WHERE id = ?')
-		.bind(game.name || null, id)
+		.prepare(
+			'UPDATE games SET name = COALESCE(?, name), is_expansion = COALESCE(?, is_expansion), parent_game_id = COALESCE(?, parent_game_id) WHERE id = ?'
+		)
+		.bind(
+			game.name || null,
+			game.is_expansion !== undefined ? (game.is_expansion ? 1 : 0) : null,
+			game.parent_game_id || null,
+			id
+		)
 		.run();
 }
 
@@ -99,14 +124,15 @@ export async function getPlayById(db: D1Database, id: number): Promise<Play | nu
 export async function createPlay(db: D1Database, play: Play): Promise<number> {
 	const result = await db
 		.prepare(
-			`INSERT INTO plays (game_id, played_at, won, player_count, notes, duration_minutes)
-			VALUES (?, ?, ?, ?, ?, ?)`
+			`INSERT INTO plays (game_id, played_at, won, player_count, expansion_ids, notes, duration_minutes)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`
 		)
 		.bind(
 			play.game_id,
 			play.played_at,
 			play.won !== undefined ? (play.won ? 1 : 0) : null,
 			play.player_count,
+			play.expansion_ids || null,
 			play.notes || null,
 			play.duration_minutes || null
 		)
@@ -125,6 +151,7 @@ export async function updatePlay(db: D1Database, id: number, play: Partial<Play>
 				played_at = COALESCE(?, played_at),
 				won = COALESCE(?, won),
 				player_count = COALESCE(?, player_count),
+				expansion_ids = COALESCE(?, expansion_ids),
 				notes = COALESCE(?, notes),
 				duration_minutes = COALESCE(?, duration_minutes)
 			WHERE id = ?`
@@ -133,6 +160,7 @@ export async function updatePlay(db: D1Database, id: number, play: Partial<Play>
 			play.played_at || null,
 			play.won !== undefined ? (play.won ? 1 : 0) : null,
 			play.player_count || null,
+			play.expansion_ids || null,
 			play.notes || null,
 			play.duration_minutes || null,
 			id

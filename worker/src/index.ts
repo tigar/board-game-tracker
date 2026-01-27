@@ -81,6 +81,13 @@ export default {
 				return jsonResponse(games);
 			}
 
+			// Get expansions for a game
+			if (path.match(/^\/api\/games\/\d+\/expansions$/) && request.method === 'GET') {
+				const id = Number.parseInt(path.split('/')[3], 10);
+				const expansions = await db.getExpansionsForGame(env.DB, id);
+				return jsonResponse(expansions);
+			}
+
 			if (path.startsWith('/api/games/') && request.method === 'GET') {
 				const id = Number.parseInt(path.split('/').pop() || '0', 10);
 				const game = await db.getGameById(env.DB, id);
@@ -91,19 +98,29 @@ export default {
 			}
 
 			if (path === '/api/games' && request.method === 'POST') {
-				const { name } = (await request.json()) as { name: string };
-				
+				const { name, is_expansion, parent_game_id } = (await request.json()) as {
+					name: string;
+					is_expansion?: boolean;
+					parent_game_id?: number;
+				};
+
 				if (!name?.trim()) {
 					return errorResponse('Game name is required');
 				}
-				
-				// Check if game already exists
-				const existing = await db.getGameByName(env.DB, name.trim());
-				if (existing) {
-					return jsonResponse({ id: existing.id }, 200);
+
+				// For base games, check if it already exists
+				if (!is_expansion) {
+					const existing = await db.getGameByName(env.DB, name.trim());
+					if (existing) {
+						return jsonResponse({ id: existing.id }, 200);
+					}
 				}
-				
-				const id = await db.createGame(env.DB, { name: name.trim() });
+
+				const id = await db.createGame(env.DB, {
+					name: name.trim(),
+					is_expansion: is_expansion || false,
+					parent_game_id,
+				});
 				return jsonResponse({ id }, 201);
 			}
 

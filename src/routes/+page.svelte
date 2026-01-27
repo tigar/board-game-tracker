@@ -15,9 +15,11 @@ let stats = $state({
 
 // UI state
 let showAddPlay = $state(false);
-let searchQuery = $state('');
+const searchQuery = $state('');
 let newGameName = $state('');
 let selectedGameId = $state<number | null>(null);
+let availableExpansions = $state<Game[]>([]);
+let selectedExpansionIds = $state<number[]>([]);
 let playDate = $state('');
 let playResult = $state<'won' | 'lost' | 'none'>('none');
 let playerCount = $state(2);
@@ -25,7 +27,7 @@ let playerCount = $state(2);
 // Filtered plays based on search
 const filteredPlays = $derived(
 	searchQuery.trim()
-		? plays.filter(p => p.game_name.toLowerCase().includes(searchQuery.toLowerCase()))
+		? plays.filter((p) => p.game_name.toLowerCase().includes(searchQuery.toLowerCase()))
 		: plays
 );
 
@@ -36,7 +38,8 @@ async function loadData() {
 			playsApi.getAll(),
 			statsApi.get(),
 		]);
-		games = gamesData;
+		// Filter to only show base games (not expansions)
+		games = gamesData.filter((g) => !g.is_expansion);
 		plays = playsData;
 		stats = statsData;
 	} catch (err) {
@@ -44,35 +47,60 @@ async function loadData() {
 	}
 }
 
+async function handleGameSelection(gameId: number | null) {
+	selectedGameId = gameId;
+	selectedExpansionIds = [];
+	availableExpansions = [];
+
+	if (gameId) {
+		try {
+			availableExpansions = await gamesApi.getExpansions(gameId);
+		} catch (err) {
+			console.error('Failed to load expansions:', err);
+		}
+	}
+}
+
+function toggleExpansion(expansionId: number) {
+	if (selectedExpansionIds.includes(expansionId)) {
+		selectedExpansionIds = selectedExpansionIds.filter((id) => id !== expansionId);
+	} else {
+		selectedExpansionIds = [...selectedExpansionIds, expansionId];
+	}
+}
+
 async function handleAddPlay() {
 	if (!selectedGameId && !newGameName.trim()) return;
-	
+
 	try {
 		let gameId = selectedGameId;
-		
+
 		// Create game if new game name provided
 		if (!gameId && newGameName.trim()) {
-			const result = await gamesApi.create(newGameName.trim());
+			const result = await gamesApi.create(newGameName.trim(), false);
 			gameId = result.id;
 		}
-		
+
 		if (!gameId) return;
-		
+
 		await playsApi.create({
 			game_id: gameId,
 			played_at: playDate || new Date().toISOString().split('T')[0],
 			won: playResult === 'won' ? true : playResult === 'lost' ? false : undefined,
 			player_count: playerCount,
+			expansion_ids: selectedExpansionIds.length > 0 ? selectedExpansionIds.join(',') : undefined,
 		});
-		
+
 		// Reset form
 		selectedGameId = null;
 		newGameName = '';
+		availableExpansions = [];
+		selectedExpansionIds = [];
 		playDate = new Date().toISOString().split('T')[0];
 		playResult = 'none';
 		playerCount = 2;
 		showAddPlay = false;
-		
+
 		await loadData();
 	} catch (err) {
 		console.error('Failed to add play:', err);
@@ -82,7 +110,7 @@ async function handleAddPlay() {
 
 async function handleDeletePlay(id: number) {
 	if (!confirm('Delete this play?')) return;
-	
+
 	try {
 		await playsApi.delete(id);
 		await loadData();
@@ -97,10 +125,10 @@ function formatDate(isoDate: string): string {
 	const today = new Date();
 	const yesterday = new Date(today);
 	yesterday.setDate(yesterday.getDate() - 1);
-	
+
 	if (date.toDateString() === today.toDateString()) return 'Today';
 	if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-	
+
 	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -110,6 +138,8 @@ onMount(async () => {
 	loading = false;
 });
 </script>
+
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && showAddPlay) showAddPlay = false; }} />
 
 {#if loading}
 	<div class="loading">Loading...</div>
@@ -158,7 +188,7 @@ onMount(async () => {
 			{#if searchQuery}
 				<p>No plays found matching "{searchQuery}"</p>
 			{:else}
-				<p>No plays yet. Tap "Log Play" to get started!</p>
+				<p>No plays yet. Tap "Log Play" to get started</p>
 			{/if}
 		</div>
 	{:else}
@@ -190,17 +220,27 @@ onMount(async () => {
 
 <!-- Add Play Modal -->
 {#if showAddPlay}
-	<div class="modal-backdrop" onclick={() => showAddPlay = false}>
-		<div class="modal" onclick={(e) => e.stopPropagation()}>
+	<div class="modal-backdrop">
+		<button 
+			type="button"
+			class="modal-backdrop-close" 
+			onclick={() => showAddPlay = false}
+			aria-label="Close modal"
+		></button>
+		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
 			<div class="modal-header">
-				<h2>Log a Play</h2>
+				<h2 id="modal-title">Log a Play</h2>
 				<button class="modal-close" onclick={() => showAddPlay = false}>×</button>
 			</div>
 			
 			<form onsubmit={(e) => { e.preventDefault(); handleAddPlay(); }}>
 				<div class="form-group">
 					<label for="game">Game</label>
-					<select id="game" bind:value={selectedGameId}>
+					<select 
+						id="game" 
+						bind:value={selectedGameId}
+						onchange={() => handleGameSelection(selectedGameId)}
+					>
 						<option value={null}>-- Or type new game below --</option>
 						{#each games as game}
 							<option value={game.id}>{game.name}</option>
@@ -218,6 +258,24 @@ onMount(async () => {
 						disabled={selectedGameId !== null}
 					/>
 				</div>
+
+				{#if availableExpansions.length > 0}
+					<div class="form-group">
+						<label>Expansions Used</label>
+						<div class="expansion-options">
+							{#each availableExpansions as expansion}
+								<label class="expansion-option" class:selected={selectedExpansionIds.includes(expansion.id!)}>
+									<input 
+										type="checkbox" 
+										checked={selectedExpansionIds.includes(expansion.id!)}
+										onchange={() => toggleExpansion(expansion.id!)}
+									/>
+									<span>{expansion.name}</span>
+								</label>
+							{/each}
+						</div>
+					</div>
+				{/if}
 
 				<div class="form-row">
 					<div class="form-group">
@@ -474,12 +532,27 @@ onMount(async () => {
 		animation: fadeIn 0.2s;
 	}
 
+	.modal-backdrop-close {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		padding: 0;
+		margin: 0;
+		z-index: 1;
+	}
+
 	@keyframes fadeIn {
 		from { opacity: 0; }
 		to { opacity: 1; }
 	}
 
 	.modal {
+		position: relative;
+		z-index: 2;
 		background: white;
 		width: 100%;
 		border-radius: 20px 20px 0 0;
@@ -599,6 +672,40 @@ onMount(async () => {
 	}
 
 	.result-option.selected {
+		border-color: #6366f1;
+		background: #eef2ff;
+		color: #6366f1;
+	}
+
+	/* Expansion Options */
+	.expansion-options {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.expansion-option {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px;
+		border: 2px solid #e2e8f0;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-weight: 500;
+		font-size: 0.875rem;
+	}
+
+	.expansion-option input[type="checkbox"] {
+		width: 20px;
+		height: 20px;
+		cursor: pointer;
+		margin: 0;
+	}
+
+	.expansion-option.selected {
 		border-color: #6366f1;
 		background: #eef2ff;
 		color: #6366f1;

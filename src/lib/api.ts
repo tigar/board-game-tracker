@@ -60,11 +60,16 @@ export const gamesApi = {
 	/**
 	 * Create a new game (or get existing if name matches)
 	 */
-	create: (name: string): Promise<{ id: number }> =>
+	create: (name: string, isExpansion = false, parentGameId?: number): Promise<{ id: number }> =>
 		request('/api/games', {
 			method: 'POST',
-			body: JSON.stringify({ name }),
+			body: JSON.stringify({ name, is_expansion: isExpansion, parent_game_id: parentGameId }),
 		}),
+
+	/**
+	 * Get expansions for a game
+	 */
+	getExpansions: (gameId: number): Promise<Game[]> => request(`/api/games/${gameId}/expansions`),
 
 	/**
 	 * Update a game

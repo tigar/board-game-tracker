@@ -7,11 +7,13 @@ export interface Env {
 }
 
 /**
- * A board game
+ * A board game or expansion
  */
 export interface Game {
 	id?: number;
 	name: string;
+	is_expansion: boolean;
+	parent_game_id?: number; // Set if this is an expansion
 	created_at?: string;
 }
 
@@ -24,6 +26,7 @@ export interface Play {
 	played_at: string;
 	won?: boolean;
 	player_count: number;
+	expansion_ids?: string; // Comma-separated list of expansion IDs
 	notes?: string;
 	duration_minutes?: number;
 	created_at?: string;

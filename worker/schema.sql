@@ -1,15 +1,21 @@
 -- Board Game Tracker Database Schema
 -- SQLite syntax for Cloudflare D1
 
--- Games table: stores simple game names
+-- Games table: stores games and expansions
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name TEXT NOT NULL,
+    is_expansion BOOLEAN DEFAULT 0 NOT NULL,
+    parent_game_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_game_id) REFERENCES games(id) ON DELETE CASCADE,
+    UNIQUE(name, parent_game_id)
 );
 
--- Create index on name for faster lookups
+-- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_games_name ON games(name);
+CREATE INDEX IF NOT EXISTS idx_games_parent ON games(parent_game_id);
+CREATE INDEX IF NOT EXISTS idx_games_is_expansion ON games(is_expansion);
 
 -- Plays table: stores individual game play records
 CREATE TABLE IF NOT EXISTS plays (
@@ -18,6 +24,7 @@ CREATE TABLE IF NOT EXISTS plays (
     played_at DATE NOT NULL,
     won BOOLEAN,
     player_count INTEGER NOT NULL,
+    expansion_ids TEXT,
     notes TEXT,
     duration_minutes INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -1,9 +1,11 @@
 /**
- * A board game
+ * A board game or expansion
  */
 export interface Game {
 	id?: number;
 	name: string;
+	is_expansion: boolean;
+	parent_game_id?: number;
 	created_at?: string;
 }
 
@@ -16,6 +18,7 @@ export interface Play {
 	played_at: string;
 	won?: boolean;
 	player_count: number;
+	expansion_ids?: string;
 	notes?: string;
 	duration_minutes?: number;
 	created_at?: string;
