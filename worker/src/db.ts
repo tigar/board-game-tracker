@@ -1,4 +1,4 @@
-import type { Game, Play, SyncMetadata } from './types';
+import type { Game, Play } from './types';
 
 /**
  * Database operations for Cloudflare D1
@@ -21,10 +21,10 @@ export async function getGameById(db: D1Database, id: number): Promise<Game | nu
 }
 
 /**
- * Get a game by BGG ID
+ * Get a game by name
  */
-export async function getGameByBGGId(db: D1Database, bggId: number): Promise<Game | null> {
-	const result = await db.prepare('SELECT * FROM games WHERE bgg_id = ?').bind(bggId).first<Game>();
+export async function getGameByName(db: D1Database, name: string): Promise<Game | null> {
+	const result = await db.prepare('SELECT * FROM games WHERE name = ?').bind(name).first<Game>();
 	return result;
 }
 
@@ -33,28 +33,8 @@ export async function getGameByBGGId(db: D1Database, bggId: number): Promise<Gam
  */
 export async function createGame(db: D1Database, game: Game): Promise<number> {
 	const result = await db
-		.prepare(
-			`INSERT INTO games (bgg_id, name, image_url, thumbnail_url, min_players, max_players, playing_time, year_published, description, user_rating, bgg_rating, complexity, bgg_rank, item_type, recommended_players, best_players)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		)
-		.bind(
-			game.bgg_id,
-			game.name,
-			game.image_url || null,
-			game.thumbnail_url || null,
-			game.min_players || null,
-			game.max_players || null,
-			game.playing_time || null,
-			game.year_published || null,
-			game.description || null,
-			game.user_rating || null,
-			game.bgg_rating || null,
-			game.complexity || null,
-			game.bgg_rank || null,
-			game.item_type || 'standalone',
-			game.recommended_players || null,
-			game.best_players || null
-		)
+		.prepare('INSERT INTO games (name) VALUES (?)')
+		.bind(game.name)
 		.run();
 
 	return result.meta.last_row_id as number;
@@ -65,44 +45,8 @@ export async function createGame(db: D1Database, game: Game): Promise<number> {
  */
 export async function updateGame(db: D1Database, id: number, game: Partial<Game>): Promise<void> {
 	await db
-		.prepare(
-			`UPDATE games SET
-				name = COALESCE(?, name),
-				image_url = COALESCE(?, image_url),
-				thumbnail_url = COALESCE(?, thumbnail_url),
-				min_players = COALESCE(?, min_players),
-				max_players = COALESCE(?, max_players),
-				playing_time = COALESCE(?, playing_time),
-				year_published = COALESCE(?, year_published),
-				description = COALESCE(?, description),
-				user_rating = COALESCE(?, user_rating),
-				bgg_rating = COALESCE(?, bgg_rating),
-				complexity = COALESCE(?, complexity),
-				bgg_rank = COALESCE(?, bgg_rank),
-				item_type = COALESCE(?, item_type),
-				recommended_players = COALESCE(?, recommended_players),
-				best_players = COALESCE(?, best_players),
-				last_synced_at = CURRENT_TIMESTAMP
-			WHERE id = ?`
-		)
-		.bind(
-			game.name || null,
-			game.image_url || null,
-			game.thumbnail_url || null,
-			game.min_players || null,
-			game.max_players || null,
-			game.playing_time || null,
-			game.year_published || null,
-			game.description || null,
-			game.user_rating || null,
-			game.bgg_rating || null,
-			game.complexity || null,
-			game.bgg_rank || null,
-			game.item_type || null,
-			game.recommended_players || null,
-			game.best_players || null,
-			id
-		)
+		.prepare('UPDATE games SET name = COALESCE(?, name) WHERE id = ?')
+		.bind(game.name || null, id)
 		.run();
 }
 
@@ -201,39 +145,6 @@ export async function updatePlay(db: D1Database, id: number, play: Partial<Play>
  */
 export async function deletePlay(db: D1Database, id: number): Promise<void> {
 	await db.prepare('DELETE FROM plays WHERE id = ?').bind(id).run();
-}
-
-/**
- * Get sync metadata for a device and table
- */
-export async function getSyncMetadata(
-	db: D1Database,
-	deviceId: string,
-	tableName: string
-): Promise<SyncMetadata | null> {
-	const result = await db
-		.prepare('SELECT * FROM sync_metadata WHERE device_id = ? AND table_name = ?')
-		.bind(deviceId, tableName)
-		.first<SyncMetadata>();
-	return result;
-}
-
-/**
- * Update or create sync metadata
- */
-export async function upsertSyncMetadata(
-	db: D1Database,
-	deviceId: string,
-	tableName: string
-): Promise<void> {
-	await db
-		.prepare(
-			`INSERT INTO sync_metadata (device_id, table_name, last_sync)
-			VALUES (?, ?, CURRENT_TIMESTAMP)
-			ON CONFLICT(device_id, table_name) DO UPDATE SET last_sync = CURRENT_TIMESTAMP`
-		)
-		.bind(deviceId, tableName)
-		.run();
 }
 
 /**

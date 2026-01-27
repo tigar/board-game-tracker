@@ -1,4 +1,3 @@
-import { parseCollectionCSV } from './bgg';
 import * as db from './db';
 import type { Env, Game, Play } from './types';
 
@@ -69,42 +68,6 @@ export default {
 			return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
 		}
 
-		// Import collection from BGG CSV export
-		if (path === '/api/collection/import' && request.method === 'POST') {
-			try {
-				const csvText = await request.text();
-				if (!csvText.trim()) {
-					return errorResponse('CSV data is required');
-				}
-
-				const games = parseCollectionCSV(csvText);
-				if (games.length === 0) {
-					return errorResponse('No valid games found in CSV');
-				}
-
-				let imported = 0;
-				let updated = 0;
-
-				for (const game of games) {
-					const existing = await db.getGameByBGGId(env.DB, game.bgg_id);
-					if (existing) {
-						await db.updateGame(env.DB, existing.id as number, game);
-						updated++;
-					} else {
-						await db.createGame(env.DB, game);
-						imported++;
-					}
-				}
-
-				return jsonResponse({ imported, updated, total: games.length });
-			} catch (error) {
-				return errorResponse(
-					error instanceof Error ? error.message : 'Failed to import collection',
-					500
-				);
-			}
-		}
-
 		// Protected endpoints - require authentication
 		// For initial development, we'll skip auth. Add back later.
 		// if (!authenticateRequest(request, env)) {
@@ -128,8 +91,19 @@ export default {
 			}
 
 			if (path === '/api/games' && request.method === 'POST') {
-				const game = (await request.json()) as Game;
-				const id = await db.createGame(env.DB, game);
+				const { name } = (await request.json()) as { name: string };
+				
+				if (!name?.trim()) {
+					return errorResponse('Game name is required');
+				}
+				
+				// Check if game already exists
+				const existing = await db.getGameByName(env.DB, name.trim());
+				if (existing) {
+					return jsonResponse({ id: existing.id }, 200);
+				}
+				
+				const id = await db.createGame(env.DB, { name: name.trim() });
 				return jsonResponse({ id }, 201);
 			}
 
@@ -188,16 +162,6 @@ export default {
 			if (path === '/api/stats' && request.method === 'GET') {
 				const stats = await db.getPlayStats(env.DB);
 				return jsonResponse(stats);
-			}
-
-			// Sync metadata endpoints
-			if (path === '/api/sync' && request.method === 'POST') {
-				const { device_id, table_name } = (await request.json()) as {
-					device_id: string;
-					table_name: string;
-				};
-				await db.upsertSyncMetadata(env.DB, device_id, table_name);
-				return jsonResponse({ success: true });
 			}
 
 			// 404 for unknown routes

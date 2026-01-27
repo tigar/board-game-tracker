@@ -1,34 +1,35 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import { collectionApi, gamesApi, healthApi, playsApi, statsApi } from '$lib/api';
-import { defaultCollectionCSV } from '$lib/data/collection';
-import type { Game, Play } from '$lib/db';
+import { gamesApi, playsApi, statsApi } from '$lib/api';
+import type { Game, Play } from '$lib/types';
 
 let loading = $state(true);
-let online = $state(navigator.onLine);
-let apiConnected = $state(false);
 let games = $state<Game[]>([]);
-let recentPlays = $state<(Play & { game_name: string })[]>([]);
-let stats = $state<{
-	total_plays: number;
-	total_games_played: number;
-	total_wins: number;
-	total_losses: number;
-} | null>(null);
-let error = $state<string | null>(null);
+let plays = $state<(Play & { game_name: string })[]>([]);
+let stats = $state({
+	total_plays: 0,
+	total_games_played: 0,
+	total_wins: 0,
+	total_losses: 0,
+});
 
-async function checkApiConnection() {
-	try {
-		await healthApi.check();
-		apiConnected = true;
-	} catch {
-		apiConnected = false;
-	}
-}
+// UI state
+let showAddPlay = $state(false);
+let searchQuery = $state('');
+let newGameName = $state('');
+let selectedGameId = $state<number | null>(null);
+let playDate = $state('');
+let playResult = $state<'won' | 'lost' | 'none'>('none');
+let playerCount = $state(2);
+
+// Filtered plays based on search
+const filteredPlays = $derived(
+	searchQuery.trim()
+		? plays.filter(p => p.game_name.toLowerCase().includes(searchQuery.toLowerCase()))
+		: plays
+);
 
 async function loadData() {
-	if (!apiConnected) return;
-
 	try {
 		const [gamesData, playsData, statsData] = await Promise.all([
 			gamesApi.getAll(),
@@ -36,364 +37,637 @@ async function loadData() {
 			statsApi.get(),
 		]);
 		games = gamesData;
-		recentPlays = playsData.slice(0, 5);
+		plays = playsData;
 		stats = statsData;
-		error = null;
 	} catch (err) {
-		error = err instanceof Error ? err.message : 'Failed to load data';
+		console.error('Failed to load data:', err);
 	}
 }
 
-async function seedCollection() {
+async function handleAddPlay() {
+	if (!selectedGameId && !newGameName.trim()) return;
+	
 	try {
-		await collectionApi.importCSV(defaultCollectionCSV);
+		let gameId = selectedGameId;
+		
+		// Create game if new game name provided
+		if (!gameId && newGameName.trim()) {
+			const result = await gamesApi.create(newGameName.trim());
+			gameId = result.id;
+		}
+		
+		if (!gameId) return;
+		
+		await playsApi.create({
+			game_id: gameId,
+			played_at: playDate || new Date().toISOString().split('T')[0],
+			won: playResult === 'won' ? true : playResult === 'lost' ? false : undefined,
+			player_count: playerCount,
+		});
+		
+		// Reset form
+		selectedGameId = null;
+		newGameName = '';
+		playDate = new Date().toISOString().split('T')[0];
+		playResult = 'none';
+		playerCount = 2;
+		showAddPlay = false;
+		
 		await loadData();
 	} catch (err) {
-		error = err instanceof Error ? err.message : 'Failed to load collection';
+		console.error('Failed to add play:', err);
+		alert('Failed to add play. Please try again.');
 	}
+}
+
+async function handleDeletePlay(id: number) {
+	if (!confirm('Delete this play?')) return;
+	
+	try {
+		await playsApi.delete(id);
+		await loadData();
+	} catch (err) {
+		console.error('Failed to delete play:', err);
+		alert('Failed to delete play. Please try again.');
+	}
+}
+
+function formatDate(isoDate: string): string {
+	const date = new Date(isoDate);
+	const today = new Date();
+	const yesterday = new Date(today);
+	yesterday.setDate(yesterday.getDate() - 1);
+	
+	if (date.toDateString() === today.toDateString()) return 'Today';
+	if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+	
+	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 onMount(async () => {
-	const handleOnline = () => {
-		online = true;
-	};
-	const handleOffline = () => {
-		online = false;
-	};
-
-	window.addEventListener('online', handleOnline);
-	window.addEventListener('offline', handleOffline);
-
-	await checkApiConnection();
-	if (apiConnected) {
-		await loadData();
-		if (games.length === 0) {
-			await seedCollection();
-		}
-	}
+	await loadData();
+	playDate = new Date().toISOString().split('T')[0];
 	loading = false;
-
-	return () => {
-		window.removeEventListener('online', handleOnline);
-		window.removeEventListener('offline', handleOffline);
-	};
 });
-
-const standaloneGames = $derived(games.filter((g) => g.item_type !== 'expansion'));
-const expansions = $derived(games.filter((g) => g.item_type === 'expansion'));
 </script>
 
-<div class="dashboard">
-	<div class="status-bar">
-		<div class="status-indicator" class:offline={!online}>
-			{online ? 'Online' : 'Offline'}
+{#if loading}
+	<div class="loading">Loading...</div>
+{:else}
+	<!-- Stats Overview -->
+	<div class="stats-grid">
+		<div class="stat-card">
+			<div class="stat-value">{stats.total_plays}</div>
+			<div class="stat-label">Plays</div>
 		</div>
-		<div class="status-indicator" class:disconnected={!apiConnected}>
-			API: {apiConnected ? 'Connected' : 'Disconnected'}
+		<div class="stat-card">
+			<div class="stat-value">{stats.total_games_played}</div>
+			<div class="stat-label">Games</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-value">{stats.total_wins}</div>
+			<div class="stat-label">Wins</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-value">{stats.total_losses}</div>
+			<div class="stat-label">Losses</div>
 		</div>
 	</div>
 
-	<h2>Welcome to Board Game Tracker</h2>
+	<!-- Primary Action -->
+	<button class="btn-add-play" onclick={() => showAddPlay = true}>
+		<span class="plus">+</span> Log Play
+	</button>
 
-	{#if error}
-		<div class="error-banner">
-			{error}
-		</div>
-	{/if}
-
-
-	{#if loading}
-		<div class="loading">Loading...</div>
-	{:else}
-		<div class="cards">
-			<div class="card">
-				<h3>Recent Plays</h3>
-				{#if recentPlays.length === 0}
-					<p>No plays recorded yet</p>
-				{:else}
-					<ul class="play-list">
-						{#each recentPlays as play}
-							<li>
-								<span class="game-name">{play.game_name}</span>
-								<span class="play-date">{new Date(play.played_at).toLocaleDateString()}</span>
-								{#if play.won !== undefined}
-									<span class="result" class:won={play.won}>{play.won ? 'Won' : 'Lost'}</span>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-
-			<div class="card">
-				<h3>Your Collection</h3>
-				{#if games.length === 0}
-					<p>Loading collection...</p>
-				{:else}
-					<p>{standaloneGames.length} games, {expansions.length} expansions</p>
-				{/if}
-			</div>
-
-			<div class="card">
-				<h3>Quick Stats</h3>
-				{#if stats && stats.total_plays > 0}
-					<ul class="stats-list">
-						<li><strong>{stats.total_plays}</strong> total plays</li>
-						<li><strong>{stats.total_games_played}</strong> different games</li>
-						<li><strong>{stats.total_wins}</strong> wins</li>
-						<li><strong>{stats.total_losses}</strong> losses</li>
-					</ul>
-				{:else}
-					<p>Start tracking your plays to see stats</p>
-				{/if}
-			</div>
-		</div>
-
-		{#if games.length > 0}
-			<div class="collection-section">
-				<h3>Collection</h3>
-				<div class="game-grid">
-					{#each standaloneGames.slice(0, 12) as game}
-						<div class="game-card">
-							{#if game.thumbnail_url}
-								<img src={game.thumbnail_url} alt={game.name} />
-							{:else}
-								<div class="no-image">No Image</div>
-							{/if}
-							<div class="game-info">
-								<span class="game-title">{game.name}</span>
-								{#if game.user_rating}
-									<span class="rating">{game.user_rating}/10</span>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-				{#if standaloneGames.length > 12}
-					<p class="more-games">and {standaloneGames.length - 12} more...</p>
-				{/if}
-			</div>
+	<!-- Search -->
+	<div class="search-container">
+		<input 
+			type="text" 
+			class="search-input" 
+			placeholder="Search plays..." 
+			bind:value={searchQuery}
+		/>
+		{#if searchQuery}
+			<button class="search-clear" onclick={() => searchQuery = ''}>×</button>
 		{/if}
+	</div>
 
-		<div class="actions">
-			<button class="primary" disabled={games.length === 0}>Record a Play</button>
+	<!-- Recent Plays -->
+	{#if filteredPlays.length === 0}
+		<div class="empty-state">
+			{#if searchQuery}
+				<p>No plays found matching "{searchQuery}"</p>
+			{:else}
+				<p>No plays yet. Tap "Log Play" to get started!</p>
+			{/if}
+		</div>
+	{:else}
+		<div class="plays-list">
+			{#each filteredPlays as play (play.id)}
+				<div class="play-item">
+					<div class="play-content">
+						<div class="play-game">{play.game_name}</div>
+						<div class="play-meta">
+							<span>{formatDate(play.played_at)}</span>
+							<span>•</span>
+							<span>{play.player_count}p</span>
+							{#if play.won !== undefined}
+								<span>•</span>
+								<span class="play-result" class:won={play.won} class:lost={!play.won}>
+									{play.won ? 'W' : 'L'}
+								</span>
+							{/if}
+						</div>
+					</div>
+					<button class="btn-delete" onclick={() => handleDeletePlay(play.id!)}>
+						Delete
+					</button>
+				</div>
+			{/each}
 		</div>
 	{/if}
-</div>
+{/if}
+
+<!-- Add Play Modal -->
+{#if showAddPlay}
+	<div class="modal-backdrop" onclick={() => showAddPlay = false}>
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2>Log a Play</h2>
+				<button class="modal-close" onclick={() => showAddPlay = false}>×</button>
+			</div>
+			
+			<form onsubmit={(e) => { e.preventDefault(); handleAddPlay(); }}>
+				<div class="form-group">
+					<label for="game">Game</label>
+					<select id="game" bind:value={selectedGameId}>
+						<option value={null}>-- Or type new game below --</option>
+						{#each games as game}
+							<option value={game.id}>{game.name}</option>
+						{/each}
+					</select>
+				</div>
+
+				<div class="form-group">
+					<label for="newGame">New Game Name</label>
+					<input 
+						id="newGame" 
+						type="text" 
+						bind:value={newGameName} 
+						placeholder="Type new game name..."
+						disabled={selectedGameId !== null}
+					/>
+				</div>
+
+				<div class="form-row">
+					<div class="form-group">
+						<label for="date">Date</label>
+						<input id="date" type="date" bind:value={playDate} required />
+					</div>
+
+					<div class="form-group">
+						<label for="players">Players</label>
+						<input id="players" type="number" min="1" max="20" bind:value={playerCount} required />
+					</div>
+				</div>
+
+				<div class="form-group">
+					<label>Result</label>
+					<div class="result-options">
+						<label class="result-option" class:selected={playResult === 'won'}>
+							<input type="radio" name="result" value="won" bind:group={playResult} />
+							<span>Won</span>
+						</label>
+						<label class="result-option" class:selected={playResult === 'lost'}>
+							<input type="radio" name="result" value="lost" bind:group={playResult} />
+							<span>Lost</span>
+						</label>
+						<label class="result-option" class:selected={playResult === 'none'}>
+							<input type="radio" name="result" value="none" bind:group={playResult} />
+							<span>No winner</span>
+						</label>
+					</div>
+				</div>
+
+				<div class="modal-actions">
+					<button type="button" class="btn btn-secondary" onclick={() => showAddPlay = false}>
+						Cancel
+					</button>
+					<button type="submit" class="btn btn-primary">
+						Save Play
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 
 <style>
-	.dashboard {
-		max-width: 900px;
-		margin: 0 auto;
-	}
-
-	.status-bar {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-	}
-
-	.status-indicator {
-		padding: 0.25rem 0.75rem;
-		border-radius: 1rem;
-		background: #4caf50;
-		color: white;
-		font-size: 0.875rem;
-		font-weight: 500;
-	}
-
-	.status-indicator.offline,
-	.status-indicator.disconnected {
-		background: #ff9800;
-	}
-
-	.error-banner {
-		background: #ffebee;
-		color: #c62828;
-		padding: 0.75rem 1rem;
-		border-radius: 4px;
-		margin-bottom: 1rem;
-	}
-
+	/* Loading State */
 	.loading {
 		text-align: center;
-		padding: 2rem;
-		color: #666;
+		padding: 3rem 1rem;
+		color: #64748b;
+		font-size: 1.125rem;
 	}
 
-	h2 {
-		margin-bottom: 2rem;
-	}
-
-	h3 {
-		margin-top: 0;
-		margin-bottom: 1rem;
-		color: #1a1a1a;
-	}
-
-	.cards {
+	/* Stats Grid */
+	.stats-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: 1.5rem;
-		margin-bottom: 2rem;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 12px;
+		margin-bottom: 20px;
 	}
 
-	.card {
+	.stat-card {
 		background: white;
-		padding: 1.5rem;
-		border-radius: 8px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	}
-
-	.card p {
-		color: #666;
-		margin-bottom: 1rem;
-	}
-
-	.play-list,
-	.stats-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-	}
-
-	.play-list li {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #eee;
-	}
-
-	.play-list li:last-child {
-		border-bottom: none;
-	}
-
-	.game-name {
-		flex: 1;
-		font-weight: 500;
-	}
-
-	.play-date {
-		color: #666;
-		font-size: 0.875rem;
-	}
-
-	.result {
-		font-size: 0.75rem;
-		padding: 0.125rem 0.5rem;
-		border-radius: 1rem;
-		background: #ffebee;
-		color: #c62828;
-	}
-
-	.result.won {
-		background: #e8f5e9;
-		color: #2e7d32;
-	}
-
-	.stats-list li {
-		padding: 0.25rem 0;
-	}
-
-	.collection-section {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 8px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		margin-bottom: 2rem;
-	}
-
-	.game-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-		gap: 1rem;
-	}
-
-	.game-card {
+		padding: 20px;
+		border-radius: 12px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 		text-align: center;
 	}
 
-	.game-card img {
-		width: 100%;
-		aspect-ratio: 1;
-		object-fit: cover;
-		border-radius: 4px;
-		background: #f5f5f5;
+	.stat-value {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1e293b;
+		line-height: 1;
+		margin-bottom: 6px;
 	}
 
-	.no-image {
+	.stat-label {
+		font-size: 0.875rem;
+		color: #64748b;
+		font-weight: 500;
+	}
+
+	/* Primary Action Button */
+	.btn-add-play {
 		width: 100%;
-		aspect-ratio: 1;
-		background: #f5f5f5;
-		border-radius: 4px;
+		padding: 18px;
+		background: #6366f1;
+		color: white;
+		border: none;
+		border-radius: 12px;
+		font-size: 1.125rem;
+		font-weight: 600;
+		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: #999;
-		font-size: 0.75rem;
+		gap: 8px;
+		margin-bottom: 20px;
+		box-shadow: 0 4px 6px rgba(99, 102, 241, 0.25);
+		transition: all 0.2s;
 	}
 
-	.game-info {
-		margin-top: 0.5rem;
+	.btn-add-play:active {
+		transform: scale(0.98);
+		box-shadow: 0 2px 4px rgba(99, 102, 241, 0.25);
 	}
 
-	.game-title {
-		display: block;
-		font-size: 0.875rem;
-		font-weight: 500;
+	.plus {
+		font-size: 1.5rem;
+		line-height: 1;
+	}
+
+	/* Search */
+	.search-container {
+		position: relative;
+		margin-bottom: 20px;
+	}
+
+	.search-input {
+		width: 100%;
+		padding: 14px 40px 14px 16px;
+		border: 2px solid #e2e8f0;
+		border-radius: 12px;
+		font-size: 1rem;
+		background: white;
+		transition: border-color 0.2s;
+		box-sizing: border-box;
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: #6366f1;
+	}
+
+	.search-clear {
+		position: absolute;
+		right: 8px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 32px;
+		height: 32px;
+		border: none;
+		background: #e2e8f0;
+		border-radius: 50%;
+		font-size: 1.5rem;
+		line-height: 1;
+		color: #64748b;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.search-clear:active {
+		background: #cbd5e1;
+	}
+
+	/* Empty State */
+	.empty-state {
+		text-align: center;
+		padding: 3rem 1rem;
+		color: #64748b;
+	}
+
+	.empty-state p {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	/* Plays List */
+	.plays-list {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.play-item {
+		background: white;
+		border-radius: 12px;
+		padding: 16px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.play-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.play-game {
+		font-size: 1.0625rem;
+		font-weight: 600;
+		color: #1e293b;
+		margin-bottom: 6px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.rating {
-		font-size: 0.75rem;
-		color: #666;
-	}
-
-	.more-games {
-		text-align: center;
-		color: #666;
-		margin-top: 1rem;
-	}
-
-	.actions {
+	.play-meta {
 		display: flex;
-		justify-content: center;
-		gap: 1rem;
+		align-items: center;
+		gap: 8px;
+		font-size: 0.875rem;
+		color: #64748b;
 	}
 
-	button {
-		padding: 0.75rem 1.5rem;
-		border: 1px solid #ddd;
-		border-radius: 4px;
+	.play-result {
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: 6px;
+		font-size: 0.75rem;
+	}
+
+	.play-result.won {
+		background: #d1fae5;
+		color: #065f46;
+	}
+
+	.play-result.lost {
+		background: #fee2e2;
+		color: #991b1b;
+	}
+
+	.btn-delete {
+		padding: 8px 16px;
+		background: #fee2e2;
+		color: #991b1b;
+		border: none;
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: background 0.2s;
+	}
+
+	.btn-delete:active {
+		background: #fecaca;
+	}
+
+	/* Modal */
+	.modal-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: flex-end;
+		z-index: 1000;
+		animation: fadeIn 0.2s;
+	}
+
+	@keyframes fadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	.modal {
 		background: white;
-		color: #333;
+		width: 100%;
+		border-radius: 20px 20px 0 0;
+		padding: 24px;
+		max-height: 90vh;
+		overflow-y: auto;
+		animation: slideUp 0.3s;
+	}
+
+	@keyframes slideUp {
+		from { transform: translateY(100%); }
+		to { transform: translateY(0); }
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 24px;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.5rem;
+		color: #1e293b;
+	}
+
+	.modal-close {
+		width: 36px;
+		height: 36px;
+		border: none;
+		background: #f1f5f9;
+		border-radius: 50%;
+		font-size: 1.5rem;
+		line-height: 1;
+		color: #64748b;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.modal-close:active {
+		background: #e2e8f0;
+	}
+
+	/* Form */
+	.form-group {
+		margin-bottom: 20px;
+	}
+
+	.form-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+	}
+
+	label {
+		display: block;
+		margin-bottom: 8px;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: #1e293b;
+	}
+
+	input[type="text"],
+	input[type="date"],
+	input[type="number"],
+	select {
+		width: 100%;
+		padding: 12px;
+		border: 2px solid #e2e8f0;
+		border-radius: 8px;
 		font-size: 1rem;
+		background: white;
+		transition: border-color 0.2s;
+		box-sizing: border-box;
+	}
+
+	input:focus,
+	select:focus {
+		outline: none;
+		border-color: #6366f1;
+	}
+
+	input:disabled {
+		background: #f8fafc;
+		color: #94a3b8;
+	}
+
+	/* Result Options */
+	.result-options {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 8px;
+	}
+
+	.result-option {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 12px;
+		border: 2px solid #e2e8f0;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-weight: 500;
+		font-size: 0.875rem;
+	}
+
+	.result-option input {
+		position: absolute;
+		opacity: 0;
+		width: 0;
+		height: 0;
+	}
+
+	.result-option.selected {
+		border-color: #6366f1;
+		background: #eef2ff;
+		color: #6366f1;
+	}
+
+	/* Modal Actions */
+	.modal-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+		margin-top: 24px;
+	}
+
+	.btn {
+		padding: 14px;
+		border: none;
+		border-radius: 8px;
+		font-size: 1rem;
+		font-weight: 600;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
-	button:hover:not(:disabled) {
-		background: #f5f5f5;
-		border-color: #ccc;
-	}
-
-	button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	button.primary {
-		background: #1a1a1a;
+	.btn-primary {
+		background: #6366f1;
 		color: white;
-		border-color: #1a1a1a;
 	}
 
-	button.primary:hover:not(:disabled) {
-		background: #333;
-		border-color: #333;
+	.btn-primary:active {
+		background: #4f46e5;
+	}
+
+	.btn-secondary {
+		background: #f1f5f9;
+		color: #475569;
+	}
+
+	.btn-secondary:active {
+		background: #e2e8f0;
+	}
+
+	/* Desktop Adjustments */
+	@media (min-width: 640px) {
+		.stats-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+
+		.modal-backdrop {
+			align-items: center;
+			justify-content: center;
+		}
+
+		.modal {
+			width: 100%;
+			max-width: 500px;
+			border-radius: 20px;
+			max-height: none;
+			animation: scaleIn 0.3s;
+		}
+
+		@keyframes scaleIn {
+			from { 
+				opacity: 0;
+				transform: scale(0.95);
+			}
+			to { 
+				opacity: 1;
+				transform: scale(1);
+			}
+		}
 	}
 </style>

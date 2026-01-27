@@ -1,4 +1,4 @@
-import type { Game, Play } from '../db';
+import type { Game, Play } from './types';
 
 /**
  * API configuration
@@ -58,12 +58,12 @@ export const gamesApi = {
 	getById: (id: number): Promise<Game> => request(`/api/games/${id}`),
 
 	/**
-	 * Create a new game
+	 * Create a new game (or get existing if name matches)
 	 */
-	create: (game: Omit<Game, 'id'>): Promise<{ id: number }> =>
+	create: (name: string): Promise<{ id: number }> =>
 		request('/api/games', {
 			method: 'POST',
-			body: JSON.stringify(game),
+			body: JSON.stringify({ name }),
 		}),
 
 	/**
@@ -141,42 +141,6 @@ export const statsApi = {
 		total_wins: number;
 		total_losses: number;
 	}> => request('/api/stats'),
-};
-
-/**
- * Collection import API
- */
-export const collectionApi = {
-	/**
-	 * Import games from BGG CSV export
-	 */
-	importCSV: async (
-		csvContent: string
-	): Promise<{
-		imported: number;
-		updated: number;
-		total: number;
-	}> => {
-		const url = `${API_BASE_URL}/api/collection/import`;
-
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'text/csv',
-			},
-			body: csvContent,
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new ApiError(
-				errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-				response.status
-			);
-		}
-
-		return response.json();
-	},
 };
 
 /**

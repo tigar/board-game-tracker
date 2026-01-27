@@ -1,12 +1,4 @@
 /**
- * Cloudflare Worker environment bindings
- */
-export interface Env {
-	DB: D1Database;
-	API_KEY: string;
-}
-
-/**
  * A board game
  */
 export interface Game {
