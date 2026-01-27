@@ -15,7 +15,7 @@ let stats = $state({
 
 // UI state
 let showAddPlay = $state(false);
-const searchQuery = $state('');
+let searchQuery = $state('');
 let newGameName = $state('');
 let selectedGameId = $state<number | null>(null);
 let availableExpansions = $state<Game[]>([]);
