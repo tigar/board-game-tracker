@@ -1,4 +1,4 @@
-import { h, formatDate, formatPlace } from '../utils.js';
+import { formatDate, formatPlace, h } from '../utils.js';
 
 /**
  * Create a play item element
@@ -39,8 +39,7 @@ function PlayItem(play, onDelete) {
 	return h(
 		'div',
 		{
-			className:
-				'bg-white rounded-xl p-4 shadow-sm flex justify-between items-center gap-3',
+			className: 'bg-white rounded-xl p-4 shadow-sm flex justify-between items-center gap-3',
 		},
 		h(
 			'div',
@@ -52,11 +51,7 @@ function PlayItem(play, onDelete) {
 				},
 				play.game_name
 			),
-			h(
-				'div',
-				{ className: 'flex items-center gap-2 text-sm text-slate-500' },
-				...metaItems
-			)
+			h('div', { className: 'flex items-center gap-2 text-sm text-slate-500' }, ...metaItems)
 		),
 		h(
 			'button',
@@ -80,11 +75,7 @@ function EmptyState(searchQuery) {
 		? `No plays found matching "${searchQuery}"`
 		: 'No plays yet. Tap "Log Play" to get started';
 
-	return h(
-		'div',
-		{ className: 'text-center py-12 text-slate-500' },
-		h('p', {}, message)
-	);
+	return h('div', { className: 'text-center py-12 text-slate-500' }, h('p', {}, message));
 }
 
 /**

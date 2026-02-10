@@ -1,5 +1,5 @@
-import { h, getTodayISO } from '../utils.js';
 import { gamesApi } from '../api.js';
+import { getTodayISO, h } from '../utils.js';
 
 /**
  * @typedef {Object} PlayFormState
@@ -103,7 +103,13 @@ export function PlayForm(games, onClose, onSubmit) {
 
 	// Game selection
 	const gameGroup = h('div', { className: 'mb-5' });
-	gameGroup.appendChild(h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'game' }, 'Game'));
+	gameGroup.appendChild(
+		h(
+			'label',
+			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'game' },
+			'Game'
+		)
+	);
 
 	const gameSelect = h(
 		'select',
@@ -146,7 +152,11 @@ export function PlayForm(games, onClose, onSubmit) {
 	// New game name
 	const newGameGroup = h('div', { className: 'mb-5' });
 	newGameGroup.appendChild(
-		h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'newGame' }, 'New Game Name')
+		h(
+			'label',
+			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'newGame' },
+			'New Game Name'
+		)
 	);
 	newGameGroup.appendChild(
 		h('input', {
@@ -219,7 +229,11 @@ export function PlayForm(games, onClose, onSubmit) {
 	if (formState.availableExpansions.length > 0) {
 		const expGroup = h('div', { className: 'mb-5' });
 		expGroup.appendChild(
-			h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900' }, 'Expansions Used')
+			h(
+				'label',
+				{ className: 'block mb-2 text-sm font-semibold text-slate-900' },
+				'Expansions Used'
+			)
 		);
 		const expOptions = h('div', { className: 'flex flex-col gap-2' });
 
@@ -260,7 +274,13 @@ export function PlayForm(games, onClose, onSubmit) {
 	const rowGroup = h('div', { className: 'grid grid-cols-2 gap-3 mb-5' });
 
 	const dateGroup = h('div', {});
-	dateGroup.appendChild(h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'date' }, 'Date'));
+	dateGroup.appendChild(
+		h(
+			'label',
+			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'date' },
+			'Date'
+		)
+	);
 	dateGroup.appendChild(
 		h('input', {
 			id: 'date',
@@ -278,7 +298,11 @@ export function PlayForm(games, onClose, onSubmit) {
 
 	const playersGroup = h('div', {});
 	playersGroup.appendChild(
-		h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'players' }, 'Players')
+		h(
+			'label',
+			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'players' },
+			'Players'
+		)
 	);
 	playersGroup.appendChild(
 		h('input', {
@@ -504,7 +528,8 @@ async function handleSubmit(onSubmit, onClose) {
 			date_played: formState.dateValue,
 			place: formState.place ?? undefined,
 			number_of_players: formState.numberOfPlayers,
-			expansion_ids: formState.selectedExpansionIds.length > 0 ? formState.selectedExpansionIds : undefined,
+			expansion_ids:
+				formState.selectedExpansionIds.length > 0 ? formState.selectedExpansionIds : undefined,
 		});
 
 		resetFormState();

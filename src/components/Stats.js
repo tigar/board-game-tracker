@@ -10,8 +10,7 @@ function StatCard(value, label) {
 	return h(
 		'div',
 		{
-			className:
-				'bg-white p-5 rounded-xl shadow-sm text-center',
+			className: 'bg-white p-5 rounded-xl shadow-sm text-center',
 		},
 		h('div', { className: 'text-3xl font-bold text-slate-900 mb-1' }, value),
 		h('div', { className: 'text-sm font-medium text-slate-500' }, label)
