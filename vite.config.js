@@ -1,14 +1,15 @@
-import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	root: '.',
+	publicDir: 'static',
+	build: {
+		outDir: 'dist',
+		emptyOutDir: true,
+	},
 	server: {
 		port: 5173,
 		strictPort: false,
-		fs: {
-			allow: ['..'],
-		},
 	},
 	preview: {
 		port: 4173,
