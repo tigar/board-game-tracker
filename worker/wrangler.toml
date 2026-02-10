@@ -2,11 +2,16 @@ name = "board-game-tracker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# D1 Database binding
-[[d1_databases]]
-binding = "DB"
-database_name = "board-game-tracker-db"
-database_id = "local-db-id"
+# KV Namespace binding
+[[kv_namespaces]]
+binding = "KV"
+id = "your-kv-namespace-id"
+
+# For local development, use a preview ID
+[[kv_namespaces]]
+binding = "KV"
+id = "your-kv-namespace-id"
+preview_id = "preview-kv-namespace-id"
 
 # Environment variables
 [vars]

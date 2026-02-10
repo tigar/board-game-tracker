@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<meta name="theme-color" content="#6366f1" />
+		<title>Board Game Tracker</title>
+		<link rel="stylesheet" href="/src/styles/main.css" />
+	</head>
+	<body class="bg-slate-100 text-slate-900 antialiased">
+		<div id="app" class="min-h-screen flex flex-col">
+			<!-- Header -->
+			<header class="bg-primary-500 text-white px-4 py-4 shadow-md sticky top-0 z-50 sm:px-6 sm:py-5">
+				<h1 class="text-xl font-bold tracking-tight sm:text-2xl">Board Game Tracker</h1>
+			</header>
+
+			<!-- Main content -->
+			<main id="main" class="flex-1 p-4 max-w-xl w-full mx-auto sm:p-6">
+				<!-- Loading state -->
+				<div id="loading" class="text-center py-12 text-slate-500 text-lg">Loading...</div>
+			</main>
+		</div>
+
+		<script type="module" src="/src/main.js"></script>
+	</body>
+</html>

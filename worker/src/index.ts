@@ -1,4 +1,4 @@
-import * as db from './db';
+import * as kv from './kv';
 import type { Env, Game, Play } from './types';
 
 /**
@@ -40,7 +40,7 @@ function errorResponse(message: string, status = 400): Response {
 }
 
 /**
- * Simple API key authentication
+ * Simple API key authentication (for future use)
  */
 function _authenticateRequest(request: Request, env: Env): boolean {
 	const authHeader = request.headers.get('Authorization');
@@ -69,7 +69,7 @@ export default {
 		}
 
 		// Protected endpoints - require authentication
-		// For initial development, we'll skip auth. Add back later.
+		// For initial development, we'll skip auth. Add back later with OAuth.
 		// if (!authenticateRequest(request, env)) {
 		// 	return errorResponse('Unauthorized', 401);
 		// }
@@ -77,20 +77,20 @@ export default {
 		try {
 			// Games endpoints
 			if (path === '/api/games' && request.method === 'GET') {
-				const games = await db.getAllGames(env.DB);
+				const games = await kv.getAllGames(env.KV);
 				return jsonResponse(games);
 			}
 
 			// Get expansions for a game
-			if (path.match(/^\/api\/games\/\d+\/expansions$/) && request.method === 'GET') {
-				const id = Number.parseInt(path.split('/')[3], 10);
-				const expansions = await db.getExpansionsForGame(env.DB, id);
+			if (path.match(/^\/api\/games\/[^/]+\/expansions$/) && request.method === 'GET') {
+				const id = path.split('/')[3];
+				const expansions = await kv.getExpansionsForGame(env.KV, id);
 				return jsonResponse(expansions);
 			}
 
-			if (path.startsWith('/api/games/') && request.method === 'GET') {
-				const id = Number.parseInt(path.split('/').pop() || '0', 10);
-				const game = await db.getGameById(env.DB, id);
+			if (path.match(/^\/api\/games\/[^/]+$/) && request.method === 'GET') {
+				const id = path.split('/').pop() || '';
+				const game = await kv.getGameById(env.KV, id);
 				if (!game) {
 					return errorResponse('Game not found', 404);
 				}
@@ -98,10 +98,11 @@ export default {
 			}
 
 			if (path === '/api/games' && request.method === 'POST') {
-				const { name, is_expansion, parent_game_id } = (await request.json()) as {
+				const { name, is_expansion, parent_game_id, co_op } = (await request.json()) as {
 					name: string;
 					is_expansion?: boolean;
-					parent_game_id?: number;
+					parent_game_id?: string;
+					co_op?: boolean;
 				};
 
 				if (!name?.trim()) {
@@ -110,46 +111,44 @@ export default {
 
 				// For base games, check if it already exists
 				if (!is_expansion) {
-					const existing = await db.getGameByName(env.DB, name.trim());
+					const existing = await kv.getGameByName(env.KV, name.trim());
 					if (existing) {
 						return jsonResponse({ id: existing.id }, 200);
 					}
 				}
 
-				const id = await db.createGame(env.DB, {
+				const id = await kv.createGame(env.KV, {
 					name: name.trim(),
 					is_expansion: is_expansion || false,
 					parent_game_id,
+					co_op: co_op || false,
 				});
 				return jsonResponse({ id }, 201);
 			}
 
-			if (path.startsWith('/api/games/') && request.method === 'PUT') {
-				const id = Number.parseInt(path.split('/').pop() || '0', 10);
+			if (path.match(/^\/api\/games\/[^/]+$/) && request.method === 'PUT') {
+				const id = path.split('/').pop() || '';
 				const game = (await request.json()) as Partial<Game>;
-				await db.updateGame(env.DB, id, game);
+				await kv.updateGame(env.KV, id, game);
 				return jsonResponse({ success: true });
 			}
 
-			if (path.startsWith('/api/games/') && request.method === 'DELETE') {
-				const id = Number.parseInt(path.split('/').pop() || '0', 10);
-				await db.deleteGame(env.DB, id);
+			if (path.match(/^\/api\/games\/[^/]+$/) && request.method === 'DELETE') {
+				const id = path.split('/').pop() || '';
+				await kv.deleteGame(env.KV, id);
 				return jsonResponse({ success: true });
 			}
 
 			// Plays endpoints
 			if (path === '/api/plays' && request.method === 'GET') {
-				const gameId = url.searchParams.get('game_id');
-				const plays = await db.getAllPlays(
-					env.DB,
-					gameId ? Number.parseInt(gameId, 10) : undefined
-				);
+				const gameId = url.searchParams.get('game_id') || undefined;
+				const plays = await kv.getAllPlays(env.KV, gameId);
 				return jsonResponse(plays);
 			}
 
-			if (path.startsWith('/api/plays/') && request.method === 'GET') {
-				const id = Number.parseInt(path.split('/').pop() || '0', 10);
-				const play = await db.getPlayById(env.DB, id);
+			if (path.match(/^\/api\/plays\/[^/]+$/) && request.method === 'GET') {
+				const id = path.split('/').pop() || '';
+				const play = await kv.getPlayById(env.KV, id);
 				if (!play) {
 					return errorResponse('Play not found', 404);
 				}
@@ -157,27 +156,27 @@ export default {
 			}
 
 			if (path === '/api/plays' && request.method === 'POST') {
-				const play = (await request.json()) as Play;
-				const id = await db.createPlay(env.DB, play);
+				const play = (await request.json()) as Omit<Play, 'id' | 'created_at' | 'updated_at'>;
+				const id = await kv.createPlay(env.KV, play);
 				return jsonResponse({ id }, 201);
 			}
 
-			if (path.startsWith('/api/plays/') && request.method === 'PUT') {
-				const id = Number.parseInt(path.split('/').pop() || '0', 10);
+			if (path.match(/^\/api\/plays\/[^/]+$/) && request.method === 'PUT') {
+				const id = path.split('/').pop() || '';
 				const play = (await request.json()) as Partial<Play>;
-				await db.updatePlay(env.DB, id, play);
+				await kv.updatePlay(env.KV, id, play);
 				return jsonResponse({ success: true });
 			}
 
-			if (path.startsWith('/api/plays/') && request.method === 'DELETE') {
-				const id = Number.parseInt(path.split('/').pop() || '0', 10);
-				await db.deletePlay(env.DB, id);
+			if (path.match(/^\/api\/plays\/[^/]+$/) && request.method === 'DELETE') {
+				const id = path.split('/').pop() || '';
+				await kv.deletePlay(env.KV, id);
 				return jsonResponse({ success: true });
 			}
 
 			// Stats endpoint
 			if (path === '/api/stats' && request.method === 'GET') {
-				const stats = await db.getPlayStats(env.DB);
+				const stats = await kv.getPlayStats(env.KV);
 				return jsonResponse(stats);
 			}
 
