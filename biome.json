@@ -7,15 +7,14 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": [
-			"**",
-			"!**/node_modules",
-			"!**/.svelte-kit",
-			"!**/build",
-			"!**/dist",
-			"!**/.claude",
-			"!**/.yarn",
-			"!**/.pnp.*"
+		"ignore": [
+			"**/node_modules",
+			"**/.svelte-kit",
+			"**/build",
+			"**/dist",
+			"**/.claude",
+			"**/.yarn",
+			"**/.pnp.*"
 		]
 	},
 	"formatter": {
@@ -24,7 +23,9 @@
 		"indentWidth": 2,
 		"lineWidth": 100
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"organizeImports": {
+		"enabled": true
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -43,7 +44,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.ts"],
+			"include": ["**/*.ts"],
 			"linter": {
 				"rules": {
 					"correctness": {
@@ -59,6 +60,11 @@
 			"quoteStyle": "single",
 			"trailingCommas": "es5",
 			"semicolons": "always"
+		}
+	},
+	"css": {
+		"linter": {
+			"enabled": false
 		}
 	}
 }

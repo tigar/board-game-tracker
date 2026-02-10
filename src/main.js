@@ -1,10 +1,10 @@
 import { gamesApi, playsApi, statsApi } from './api.js';
-import { getState, setState, subscribe, getFilteredPlays } from './state.js';
-import { Stats } from './components/Stats.js';
-import { PlayList } from './components/PlayList.js';
-import { SearchBar } from './components/SearchBar.js';
 import { LogPlayButton } from './components/LogPlayButton.js';
 import { PlayForm } from './components/PlayForm.js';
+import { PlayList } from './components/PlayList.js';
+import { SearchBar } from './components/SearchBar.js';
+import { Stats } from './components/Stats.js';
+import { getFilteredPlays, getState, setState, subscribe } from './state.js';
 
 /**
  * Load all data from API

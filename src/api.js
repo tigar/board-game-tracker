@@ -72,7 +72,7 @@ export const gamesApi = {
 	 * @param {boolean} [coOp]
 	 * @returns {Promise<{id: string}>}
 	 */
-	create: (name, isExpansion = false, parentGameId, coOp = false) =>
+	create: (name, isExpansion = false, parentGameId = undefined, coOp = false) =>
 		request('/api/games', {
 			method: 'POST',
 			body: JSON.stringify({

@@ -104,7 +104,11 @@ export async function createGame(
 /**
  * Update an existing game
  */
-export async function updateGame(kv: KVNamespace, id: string, updates: Partial<Game>): Promise<void> {
+export async function updateGame(
+	kv: KVNamespace,
+	id: string,
+	updates: Partial<Game>
+): Promise<void> {
 	const data = await getUserData(kv);
 	const index = data.games.findIndex((g) => g.id === id);
 	if (index !== -1) {
@@ -181,7 +185,11 @@ export async function createPlay(
 /**
  * Update an existing play
  */
-export async function updatePlay(kv: KVNamespace, id: string, updates: Partial<Play>): Promise<void> {
+export async function updatePlay(
+	kv: KVNamespace,
+	id: string,
+	updates: Partial<Play>
+): Promise<void> {
 	const data = await getUserData(kv);
 	const index = data.plays.findIndex((p) => p.id === id);
 	if (index !== -1) {
