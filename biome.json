@@ -9,7 +9,6 @@
 		"ignoreUnknown": false,
 		"ignore": [
 			"**/node_modules",
-			"**/.svelte-kit",
 			"**/build",
 			"**/dist",
 			"**/.claude",
