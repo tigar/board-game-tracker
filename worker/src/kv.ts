@@ -1,4 +1,5 @@
 import type { Game, Play, PlayWithGame, Stats, UserData } from './types';
+import seedGames from './seed-data.json';
 
 /**
  * Default user ID (will be replaced with OAuth later)
@@ -245,4 +246,48 @@ export async function getPlayStats(kv: KVNamespace): Promise<Stats> {
 		total_wins: wins,
 		total_losses: losses,
 	};
+}
+
+// ============ Seeding ============
+
+/**
+ * Seed the database with initial game collection
+ * @param mode - 'replace' overwrites all games, 'merge' only adds new games
+ */
+export async function seedGamesFromCollection(
+	kv: KVNamespace,
+	mode: 'replace' | 'merge' = 'merge'
+): Promise<{ added: number; skipped: number }> {
+	const data = await getUserData(kv);
+	const games = seedGames as Game[];
+
+	let added = 0;
+	let skipped = 0;
+
+	if (mode === 'replace') {
+		// Replace all games, keep plays
+		data.games = games;
+		added = games.length;
+	} else {
+		// Merge: only add games that don't exist (by bgg_id or name)
+		const existingBggIds = new Set(data.games.map((g) => g.bgg_id).filter(Boolean));
+		const existingNames = new Set(data.games.map((g) => g.name.toLowerCase()));
+
+		for (const game of games) {
+			const hasBggId = game.bgg_id && existingBggIds.has(game.bgg_id);
+			const hasName = existingNames.has(game.name.toLowerCase());
+
+			if (!hasBggId && !hasName) {
+				data.games.push(game);
+				if (game.bgg_id) existingBggIds.add(game.bgg_id);
+				existingNames.add(game.name.toLowerCase());
+				added++;
+			} else {
+				skipped++;
+			}
+		}
+	}
+
+	await saveUserData(kv, data);
+	return { added, skipped };
 }

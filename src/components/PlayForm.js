@@ -49,21 +49,24 @@ export function resetFormState() {
  * @param {import('../types.js').Game[]} games - Base games only
  * @param {() => void} onClose
  * @param {(data: {game_id: string, date_played: string, place: number | undefined, number_of_players: number, expansion_ids: string[] | undefined}) => Promise<void>} onSubmit
+ * @param {boolean} [isRerender=false] - If true, don't reset form state (used for re-renders)
  * @returns {HTMLElement}
  */
-export function PlayForm(games, onClose, onSubmit) {
-	// Reset form state on open
-	resetFormState();
+export function PlayForm(games, onClose, onSubmit, isRerender = false) {
+	// Reset form state only on initial open, not on re-renders
+	if (!isRerender) {
+		resetFormState();
+	}
 
 	const backdrop = h('div', {
 		className:
 			'fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 animate-fadeIn',
 	});
 
-	// Backdrop close button (invisible, covers backdrop)
+	// Backdrop close button (invisible, covers backdrop but behind modal)
 	const backdropClose = h('button', {
 		type: 'button',
-		className: 'absolute inset-0 w-full h-full cursor-pointer',
+		className: 'absolute inset-0 w-full h-full cursor-pointer z-0',
 		onclick: onClose,
 		'aria-label': 'Close modal',
 	});
@@ -71,7 +74,7 @@ export function PlayForm(games, onClose, onSubmit) {
 
 	const modal = h('div', {
 		className:
-			'relative bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp sm:animate-scaleIn z-10',
+			'relative bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto z-10',
 	});
 	backdrop.appendChild(modal);
 
@@ -117,34 +120,43 @@ export function PlayForm(games, onClose, onSubmit) {
 			id: 'game',
 			className:
 				'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors',
-			onchange: async (e) => {
-				const value = e.target.value;
-				formState.selectedGameId = value || null;
-				formState.selectedExpansionIds = [];
+		onchange: async (e) => {
+			const value = e.target.value;
+			formState.selectedGameId = value || null;
+			formState.selectedExpansionIds = [];
 
-				if (value) {
-					const selectedGame = games.find((g) => g.id === value);
-					formState.isCoOp = selectedGame?.co_op || false;
-					formState.place = null;
+			if (value) {
+				const selectedGame = games.find((g) => g.id === value);
+				formState.isCoOp = selectedGame?.co_op || false;
+				formState.place = null;
 
-					// Load expansions
-					try {
-						formState.availableExpansions = await gamesApi.getExpansions(value);
-					} catch (err) {
-						console.error('Failed to load expansions:', err);
-						formState.availableExpansions = [];
-					}
-				} else {
-					formState.isCoOp = formState.newGameCoOp;
-					formState.availableExpansions = [];
+				// Reset numberOfPlayers if out of range for new game
+				const minPlayers = selectedGame?.min_players ?? 1;
+				const maxPlayers = selectedGame?.max_players ?? 8;
+				if (formState.numberOfPlayers < minPlayers || formState.numberOfPlayers > maxPlayers) {
+					formState.numberOfPlayers = minPlayers;
 				}
 
-				// Re-render form
-				rerenderForm(form, games, onSubmit, onClose);
-			},
+				// Load expansions
+				try {
+					formState.availableExpansions = await gamesApi.getExpansions(value);
+				} catch (err) {
+					console.error('Failed to load expansions:', err);
+					formState.availableExpansions = [];
+				}
+			} else {
+				formState.isCoOp = formState.newGameCoOp;
+				formState.availableExpansions = [];
+			}
+
+			// Re-render form
+			rerenderForm(form, games, onSubmit, onClose);
 		},
-		h('option', { value: '' }, '-- Or type new game below --'),
-		...games.map((g) => h('option', { value: g.id }, g.name))
+		},
+		h('option', { value: '', selected: !formState.selectedGameId }, '-- Or type new game below --'),
+		...games.map((g) =>
+			h('option', { value: g.id, selected: formState.selectedGameId === g.id }, g.name)
+		)
 	);
 	gameGroup.appendChild(gameSelect);
 	form.appendChild(gameGroup);
@@ -300,30 +312,41 @@ export function PlayForm(games, onClose, onSubmit) {
 	playersGroup.appendChild(
 		h(
 			'label',
-			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'players' },
+			{ className: 'block mb-2 text-sm font-semibold text-slate-900' },
 			'Players'
 		)
 	);
-	playersGroup.appendChild(
-		h('input', {
-			id: 'players',
-			type: 'number',
-			min: '1',
-			max: '20',
-			className:
-				'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors',
-			value: formState.numberOfPlayers,
-			required: true,
-			onchange: (e) => {
-				formState.numberOfPlayers = Number.parseInt(e.target.value, 10) || 2;
-				// Reset place if it's now invalid
-				if (formState.place !== null && formState.place > formState.numberOfPlayers) {
-					formState.place = null;
-				}
-				rerenderForm(form, games, onSubmit, onClose);
+
+	// Get min/max players from selected game, or default for new games
+	const selectedGame = games.find((g) => g.id === formState.selectedGameId);
+	const minPlayers = selectedGame?.min_players ?? 1;
+	const maxPlayers = selectedGame?.max_players ?? 8;
+
+	const playerOptions = h('div', { className: 'flex flex-wrap gap-2' });
+	for (let i = minPlayers; i <= maxPlayers; i++) {
+		const btn = h(
+			'button',
+			{
+				type: 'button',
+				className: `py-2 px-3 border-2 rounded-lg font-medium text-sm transition-all ${
+					formState.numberOfPlayers === i
+						? 'border-primary-500 bg-primary-50 text-primary-600'
+						: 'border-slate-200 text-slate-600'
+				}`,
+				onclick: () => {
+					formState.numberOfPlayers = i;
+					// Reset place if it's now invalid
+					if (formState.place !== null && formState.place > i) {
+						formState.place = null;
+					}
+					rerenderForm(form, games, onSubmit, onClose);
+				},
 			},
-		})
-	);
+			String(i)
+		);
+		playerOptions.appendChild(btn);
+	}
+	playersGroup.appendChild(playerOptions);
 	rowGroup.appendChild(playersGroup);
 
 	form.appendChild(rowGroup);
@@ -492,8 +515,8 @@ function rerenderForm(form, games, onSubmit, onClose) {
 	// Remove old form
 	form.remove();
 
-	// Create new form and append to modal
-	const tempBackdrop = PlayForm(games, onClose, onSubmit);
+	// Create new form and append to modal (pass true to preserve state)
+	const tempBackdrop = PlayForm(games, onClose, onSubmit, true);
 	const newModal = tempBackdrop.querySelector('.bg-white');
 	const newForm = newModal.querySelector('form');
 

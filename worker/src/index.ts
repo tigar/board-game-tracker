@@ -174,14 +174,26 @@ export default {
 				return jsonResponse({ success: true });
 			}
 
-			// Stats endpoint
-			if (path === '/api/stats' && request.method === 'GET') {
-				const stats = await kv.getPlayStats(env.KV);
-				return jsonResponse(stats);
-			}
+		// Stats endpoint
+		if (path === '/api/stats' && request.method === 'GET') {
+			const stats = await kv.getPlayStats(env.KV);
+			return jsonResponse(stats);
+		}
 
-			// 404 for unknown routes
-			return errorResponse('Not found', 404);
+		// Seed endpoint - loads games from seed-data.json
+		if (path === '/api/seed' && request.method === 'POST') {
+			const body = (await request.json().catch(() => ({}))) as { mode?: 'replace' | 'merge' };
+			const mode = body.mode === 'replace' ? 'replace' : 'merge';
+			const result = await kv.seedGamesFromCollection(env.KV, mode);
+			return jsonResponse({
+				success: true,
+				mode,
+				...result,
+			});
+		}
+
+		// 404 for unknown routes
+		return errorResponse('Not found', 404);
 		} catch (error) {
 			console.error('Worker error:', error);
 			return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500);

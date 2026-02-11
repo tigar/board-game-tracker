@@ -96,7 +96,7 @@ function render(container) {
 	}
 
 	// Stats
-	container.appendChild(Stats(state.stats));
+	container.appendChild(Stats(state.stats, state.plays));
 
 	// Log Play button
 	container.appendChild(LogPlayButton(showAddPlayModal));
