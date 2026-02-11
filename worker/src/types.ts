@@ -11,10 +11,15 @@ export interface Env {
  */
 export interface Game {
 	id: string; // UUID
+	bgg_id?: number; // BoardGameGeek ID
 	name: string;
 	is_expansion: boolean;
-	parent_game_id?: string;
+	parent_game_id?: string | null;
 	co_op: boolean; // Is this a cooperative game?
+	min_players?: number | null;
+	max_players?: number | null;
+	playing_time?: number | null;
+	year_published?: number | null;
 	created_at: string;
 }
 

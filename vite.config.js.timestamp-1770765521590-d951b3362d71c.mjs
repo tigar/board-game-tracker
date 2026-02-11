@@ -1,0 +1,22 @@
+// vite.config.js
+import { defineConfig } from "file:///Users/adamt/devo/board-game-tracker/.yarn/__virtual__/vite-virtual-b6178e5a89/0/cache/vite-npm-5.4.21-12a8265f9b-7177fa03cf.zip/node_modules/vite/dist/node/index.js";
+var vite_config_default = defineConfig({
+  root: ".",
+  publicDir: "static",
+  build: {
+    outDir: "dist",
+    emptyOutDir: true
+  },
+  server: {
+    port: 5173,
+    strictPort: false
+  },
+  preview: {
+    port: 4173,
+    strictPort: false
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCIvVXNlcnMvYWRhbXQvZGV2by9ib2FyZC1nYW1lLXRyYWNrZXJcIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfZmlsZW5hbWUgPSBcIi9Vc2Vycy9hZGFtdC9kZXZvL2JvYXJkLWdhbWUtdHJhY2tlci92aXRlLmNvbmZpZy5qc1wiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9pbXBvcnRfbWV0YV91cmwgPSBcImZpbGU6Ly8vVXNlcnMvYWRhbXQvZGV2by9ib2FyZC1nYW1lLXRyYWNrZXIvdml0ZS5jb25maWcuanNcIjtpbXBvcnQgeyBkZWZpbmVDb25maWcgfSBmcm9tICd2aXRlJztcblxuZXhwb3J0IGRlZmF1bHQgZGVmaW5lQ29uZmlnKHtcblx0cm9vdDogJy4nLFxuXHRwdWJsaWNEaXI6ICdzdGF0aWMnLFxuXHRidWlsZDoge1xuXHRcdG91dERpcjogJ2Rpc3QnLFxuXHRcdGVtcHR5T3V0RGlyOiB0cnVlLFxuXHR9LFxuXHRzZXJ2ZXI6IHtcblx0XHRwb3J0OiA1MTczLFxuXHRcdHN0cmljdFBvcnQ6IGZhbHNlLFxuXHR9LFxuXHRwcmV2aWV3OiB7XG5cdFx0cG9ydDogNDE3Myxcblx0XHRzdHJpY3RQb3J0OiBmYWxzZSxcblx0fSxcbn0pO1xuIl0sCiAgIm1hcHBpbmdzIjogIjtBQUE4UixTQUFTLG9CQUFvQjtBQUUzVCxJQUFPLHNCQUFRLGFBQWE7QUFBQSxFQUMzQixNQUFNO0FBQUEsRUFDTixXQUFXO0FBQUEsRUFDWCxPQUFPO0FBQUEsSUFDTixRQUFRO0FBQUEsSUFDUixhQUFhO0FBQUEsRUFDZDtBQUFBLEVBQ0EsUUFBUTtBQUFBLElBQ1AsTUFBTTtBQUFBLElBQ04sWUFBWTtBQUFBLEVBQ2I7QUFBQSxFQUNBLFNBQVM7QUFBQSxJQUNSLE1BQU07QUFBQSxJQUNOLFlBQVk7QUFBQSxFQUNiO0FBQ0QsQ0FBQzsiLAogICJuYW1lcyI6IFtdCn0K
