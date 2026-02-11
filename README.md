@@ -75,6 +75,14 @@ Set `VITE_API_URL` environment variable to your Worker URL during build.
 - `duration_minutes` - Optional duration
 - `created_at`, `updated_at` - Timestamps
 
+
+## TODOs
+- [ ] Add separate "log game outside of collection" button
+- [ ] Improve stats tracking
+- [ ] Redo color scheme and component styling
+- [ ] Set-up demo endpoint
+- [ ] Configure OAuth for actual deployment with "view only" endpoint
+
 ## License
 
 MIT
