@@ -4,7 +4,9 @@ import { getTodayISO, h } from '../utils.js';
 /**
  * @typedef {Object} PlayFormState
  * @property {string | null} selectedGameId
- * @property {string} newGameName
+ * @property {string} gameInputText - Text in the autocomplete input
+ * @property {boolean} showDropdown - Whether to show the autocomplete dropdown
+ * @property {number} highlightedIndex - Index of highlighted item in dropdown for keyboard navigation
  * @property {boolean} newGameCoOp
  * @property {import('../types.js').Game[]} availableExpansions
  * @property {string[]} selectedExpansionIds
@@ -17,7 +19,9 @@ import { getTodayISO, h } from '../utils.js';
 /** @type {PlayFormState} */
 let formState = {
 	selectedGameId: null,
-	newGameName: '',
+	gameInputText: '',
+	showDropdown: false,
+	highlightedIndex: -1,
 	newGameCoOp: false,
 	availableExpansions: [],
 	selectedExpansionIds: [],
@@ -33,7 +37,9 @@ let formState = {
 export function resetFormState() {
 	formState = {
 		selectedGameId: null,
-		newGameName: '',
+		gameInputText: '',
+		showDropdown: false,
+		highlightedIndex: -1,
 		newGameCoOp: false,
 		availableExpansions: [],
 		selectedExpansionIds: [],
@@ -45,14 +51,71 @@ export function resetFormState() {
 }
 
 /**
+ * Get the most played games from the plays data
+ * @param {import('../types.js').PlayWithGame[]} plays
+ * @param {import('../types.js').Game[]} games
+ * @param {number} limit
+ * @returns {import('../types.js').Game[]}
+ */
+function getMostPlayedGames(plays, games, limit = 3) {
+	/** @type {Record<string, number>} */
+	const playCounts = {};
+	for (const play of plays) {
+		playCounts[play.game_id] = (playCounts[play.game_id] || 0) + 1;
+	}
+
+	return games
+		.filter((g) => playCounts[g.id] > 0)
+		.sort((a, b) => (playCounts[b.id] || 0) - (playCounts[a.id] || 0))
+		.slice(0, limit);
+}
+
+/**
+ * Select a game from the autocomplete
+ * @param {import('../types.js').Game} game
+ * @param {import('../types.js').Game[]} games
+ * @param {HTMLFormElement} form
+ * @param {import('../types.js').PlayWithGame[]} plays
+ * @param {(data: {game_id: string, date_played: string, place: number | undefined, number_of_players: number, expansion_ids: string[] | undefined}) => Promise<void>} onSubmit
+ * @param {() => void} onClose
+ */
+async function selectGame(game, games, form, plays, onSubmit, onClose) {
+	formState.selectedGameId = game.id;
+	formState.gameInputText = game.name;
+	formState.showDropdown = false;
+	formState.highlightedIndex = -1;
+	formState.selectedExpansionIds = [];
+	formState.isCoOp = game.co_op || false;
+	formState.place = null;
+
+	// Reset numberOfPlayers if out of range for new game
+	const minPlayers = game.min_players ?? 1;
+	const maxPlayers = game.max_players ?? 8;
+	if (formState.numberOfPlayers < minPlayers || formState.numberOfPlayers > maxPlayers) {
+		formState.numberOfPlayers = minPlayers;
+	}
+
+	// Load expansions
+	try {
+		formState.availableExpansions = await gamesApi.getExpansions(game.id);
+	} catch (err) {
+		console.error('Failed to load expansions:', err);
+		formState.availableExpansions = [];
+	}
+
+	rerenderForm(form, games, plays, onSubmit, onClose);
+}
+
+/**
  * Create the play form modal
  * @param {import('../types.js').Game[]} games - Base games only
+ * @param {import('../types.js').PlayWithGame[]} plays - All plays for calculating most played
  * @param {() => void} onClose
  * @param {(data: {game_id: string, date_played: string, place: number | undefined, number_of_players: number, expansion_ids: string[] | undefined}) => Promise<void>} onSubmit
  * @param {boolean} [isRerender=false] - If true, don't reset form state (used for re-renders)
  * @returns {HTMLElement}
  */
-export function PlayForm(games, onClose, onSubmit, isRerender = false) {
+export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	// Reset form state only on initial open, not on re-renders
 	if (!isRerender) {
 		resetFormState();
@@ -104,7 +167,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 	});
 	modal.appendChild(form);
 
-	// Game selection
+	// Game selection with autocomplete
 	const gameGroup = h('div', { className: 'mb-5' });
 	gameGroup.appendChild(
 		h(
@@ -114,76 +177,173 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 		)
 	);
 
-	const gameSelect = h(
-		'select',
-		{
-			id: 'game',
+	// Autocomplete wrapper
+	const autocompleteWrapper = h('div', { className: 'relative' });
+
+	// Dropdown container (always present, content updated dynamically)
+	const dropdownContainer = h('div', { id: 'game-dropdown-container' });
+
+	/**
+	 * Update the dropdown content without rerendering the form
+	 */
+	const updateDropdown = () => {
+		// Clear existing dropdown
+		dropdownContainer.innerHTML = '';
+
+		const inputText = formState.gameInputText.trim().toLowerCase();
+		const filteredGames = inputText
+			? games.filter((g) => g.name.toLowerCase().includes(inputText))
+			: games;
+
+		if (!formState.showDropdown || filteredGames.length === 0) {
+			return;
+		}
+
+		const dropdown = h('div', {
 			className:
-				'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors',
-		onchange: async (e) => {
-			const value = e.target.value;
-			formState.selectedGameId = value || null;
-			formState.selectedExpansionIds = [];
+				'absolute z-20 w-full mt-1 bg-white border-2 border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto',
+		});
 
-			if (value) {
-				const selectedGame = games.find((g) => g.id === value);
-				formState.isCoOp = selectedGame?.co_op || false;
-				formState.place = null;
+		for (let i = 0; i < filteredGames.length; i++) {
+			const game = filteredGames[i];
+			const isHighlighted = i === formState.highlightedIndex;
+			const option = h(
+				'button',
+				{
+					type: 'button',
+					className: `w-full text-left px-3 py-2 text-sm transition-colors ${
+						isHighlighted
+							? 'bg-primary-50 text-primary-600'
+							: 'hover:bg-slate-50 text-slate-700'
+					}`,
+					onmousedown: async (e) => {
+						e.preventDefault(); // Prevent blur before click
+						await selectGame(game, games, form, plays, onSubmit, onClose);
+					},
+					onmouseenter: () => {
+						formState.highlightedIndex = i;
+						updateDropdown();
+					},
+				},
+				game.name
+			);
+			dropdown.appendChild(option);
+		}
 
-				// Reset numberOfPlayers if out of range for new game
-				const minPlayers = selectedGame?.min_players ?? 1;
-				const maxPlayers = selectedGame?.max_players ?? 8;
-				if (formState.numberOfPlayers < minPlayers || formState.numberOfPlayers > maxPlayers) {
-					formState.numberOfPlayers = minPlayers;
-				}
+		dropdownContainer.appendChild(dropdown);
+	};
 
-				// Load expansions
-				try {
-					formState.availableExpansions = await gamesApi.getExpansions(value);
-				} catch (err) {
-					console.error('Failed to load expansions:', err);
+	// Game input
+	const gameInput = h('input', {
+		id: 'game',
+		type: 'text',
+		className:
+			'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors',
+		placeholder: 'Search or add a game...',
+		value: formState.gameInputText,
+		autocomplete: 'off',
+		oninput: (e) => {
+			formState.gameInputText = e.target.value;
+			formState.showDropdown = true;
+			formState.highlightedIndex = -1;
+			// Clear selection when typing a different value
+			if (formState.selectedGameId) {
+				const selectedGame = games.find((g) => g.id === formState.selectedGameId);
+				if (selectedGame && selectedGame.name !== e.target.value) {
+					formState.selectedGameId = null;
 					formState.availableExpansions = [];
+					formState.selectedExpansionIds = [];
+					formState.isCoOp = formState.newGameCoOp;
 				}
-			} else {
-				formState.isCoOp = formState.newGameCoOp;
-				formState.availableExpansions = [];
 			}
+			updateDropdown();
+		},
+		onfocus: () => {
+			formState.showDropdown = true;
+			updateDropdown();
+		},
+		onblur: () => {
+			// Delay hiding dropdown to allow click events to fire
+			setTimeout(() => {
+				formState.showDropdown = false;
+				updateDropdown();
+			}, 150);
+		},
+		onkeydown: async (e) => {
+			const inputText = formState.gameInputText.trim().toLowerCase();
+			const currentFiltered = inputText
+				? games.filter((g) => g.name.toLowerCase().includes(inputText))
+				: games;
 
-			// Re-render form
-			rerenderForm(form, games, onSubmit, onClose);
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				formState.highlightedIndex = Math.min(
+					formState.highlightedIndex + 1,
+					currentFiltered.length - 1
+				);
+				updateDropdown();
+			} else if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				formState.highlightedIndex = Math.max(formState.highlightedIndex - 1, -1);
+				updateDropdown();
+			} else if (e.key === 'Enter') {
+				if (formState.highlightedIndex >= 0) {
+					e.preventDefault();
+					const selectedGame = currentFiltered[formState.highlightedIndex];
+					if (selectedGame) {
+						await selectGame(selectedGame, games, form, plays, onSubmit, onClose);
+					}
+				}
+			} else if (e.key === 'Escape') {
+				formState.showDropdown = false;
+				updateDropdown();
+				e.target.blur();
+			}
 		},
-		},
-		h('option', { value: '', selected: !formState.selectedGameId }, '-- Or type new game below --'),
-		...games.map((g) =>
-			h('option', { value: g.id, selected: formState.selectedGameId === g.id }, g.name)
-		)
-	);
-	gameGroup.appendChild(gameSelect);
+	});
+
+	autocompleteWrapper.appendChild(gameInput);
+	autocompleteWrapper.appendChild(dropdownContainer);
+
+	// Initialize dropdown if it should be visible
+	if (formState.showDropdown) {
+		updateDropdown();
+	}
+
+	gameGroup.appendChild(autocompleteWrapper);
+
+	// Most played suggestions
+	const mostPlayed = getMostPlayedGames(plays, games, 3);
+	if (mostPlayed.length > 0) {
+		const suggestionsContainer = h('div', { className: 'mt-2' });
+		const suggestionsLabel = h(
+			'span',
+			{ className: 'text-xs text-slate-500' },
+			'Quick picks: '
+		);
+		suggestionsContainer.appendChild(suggestionsLabel);
+
+		const suggestionsButtons = h('div', { className: 'flex flex-wrap gap-1 mt-1' });
+		for (const game of mostPlayed) {
+			const btn = h(
+				'button',
+				{
+					type: 'button',
+					className:
+						'px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors',
+					onclick: async () => {
+						await selectGame(game, games, form, plays, onSubmit, onClose);
+					},
+				},
+				game.name
+			);
+			suggestionsButtons.appendChild(btn);
+		}
+		suggestionsContainer.appendChild(suggestionsButtons);
+		gameGroup.appendChild(suggestionsContainer);
+	}
+
 	form.appendChild(gameGroup);
-
-	// New game name
-	const newGameGroup = h('div', { className: 'mb-5' });
-	newGameGroup.appendChild(
-		h(
-			'label',
-			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'newGame' },
-			'New Game Name'
-		)
-	);
-	newGameGroup.appendChild(
-		h('input', {
-			id: 'newGame',
-			type: 'text',
-			className:
-				'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors disabled:bg-slate-50 disabled:text-slate-400',
-			placeholder: 'Type new game name...',
-			disabled: formState.selectedGameId !== null,
-			oninput: (e) => {
-				formState.newGameName = e.target.value;
-			},
-		})
-	);
-	form.appendChild(newGameGroup);
 
 	// Co-op toggle (only for new games)
 	if (!formState.selectedGameId) {
@@ -206,7 +366,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 					formState.newGameCoOp = false;
 					formState.isCoOp = false;
 					formState.place = null;
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			'Competitive'
@@ -226,7 +386,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 					formState.newGameCoOp = true;
 					formState.isCoOp = true;
 					formState.place = null;
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			'Co-op'
@@ -270,7 +430,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 						} else {
 							formState.selectedExpansionIds = [...formState.selectedExpansionIds, exp.id];
 						}
-						rerenderForm(form, games, onSubmit, onClose);
+						rerenderForm(form, games, plays, onSubmit, onClose);
 					},
 				}),
 				h('span', { className: 'font-medium text-sm' }, exp.name)
@@ -339,7 +499,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 					if (formState.place !== null && formState.place > i) {
 						formState.place = null;
 					}
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			String(i)
@@ -372,7 +532,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 				}`,
 				onclick: () => {
 					formState.place = 1;
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			'Won'
@@ -390,7 +550,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 				}`,
 				onclick: () => {
 					formState.place = -1;
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			'Lost'
@@ -408,7 +568,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 				}`,
 				onclick: () => {
 					formState.place = null;
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			'No result'
@@ -434,7 +594,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 					}`,
 					onclick: () => {
 						formState.place = i;
-						rerenderForm(form, games, onSubmit, onClose);
+						rerenderForm(form, games, plays, onSubmit, onClose);
 					},
 				},
 				`${i}${suffix}`
@@ -454,7 +614,7 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 				}`,
 				onclick: () => {
 					formState.place = null;
-					rerenderForm(form, games, onSubmit, onClose);
+					rerenderForm(form, games, plays, onSubmit, onClose);
 				},
 			},
 			'None'
@@ -507,8 +667,13 @@ export function PlayForm(games, onClose, onSubmit, isRerender = false) {
 
 /**
  * Re-render the form content (preserving modal structure)
+ * @param {HTMLFormElement} form
+ * @param {import('../types.js').Game[]} games
+ * @param {import('../types.js').PlayWithGame[]} plays
+ * @param {(data: {game_id: string, date_played: string, place: number | undefined, number_of_players: number, expansion_ids: string[] | undefined}) => Promise<void>} onSubmit
+ * @param {() => void} onClose
  */
-function rerenderForm(form, games, onSubmit, onClose) {
+function rerenderForm(form, games, plays, onSubmit, onClose) {
 	const modal = form.parentElement;
 	const backdrop = modal.parentElement;
 
@@ -516,7 +681,7 @@ function rerenderForm(form, games, onSubmit, onClose) {
 	form.remove();
 
 	// Create new form and append to modal (pass true to preserve state)
-	const tempBackdrop = PlayForm(games, onClose, onSubmit, true);
+	const tempBackdrop = PlayForm(games, plays, onClose, onSubmit, true);
 	const newModal = tempBackdrop.querySelector('.bg-white');
 	const newForm = newModal.querySelector('form');
 
@@ -530,10 +695,10 @@ async function handleSubmit(onSubmit, onClose) {
 	try {
 		let gameId = formState.selectedGameId;
 
-		// Create new game if needed
-		if (!gameId && formState.newGameName.trim()) {
+		// Create new game if needed (when text is entered but no game is selected)
+		if (!gameId && formState.gameInputText.trim()) {
 			const result = await gamesApi.create(
-				formState.newGameName.trim(),
+				formState.gameInputText.trim(),
 				false,
 				undefined,
 				formState.newGameCoOp
@@ -546,17 +711,22 @@ async function handleSubmit(onSubmit, onClose) {
 			return;
 		}
 
-		await onSubmit({
+		// Capture form data before resetting
+		const playData = {
 			game_id: gameId,
 			date_played: formState.dateValue,
 			place: formState.place ?? undefined,
 			number_of_players: formState.numberOfPlayers,
 			expansion_ids:
 				formState.selectedExpansionIds.length > 0 ? formState.selectedExpansionIds : undefined,
-		});
+		};
 
+		// Close modal and reset state BEFORE submitting to prevent re-render showing empty form
 		resetFormState();
 		onClose();
+
+		// Now submit the data (this triggers loadData which re-renders, but modal is already closed)
+		await onSubmit(playData);
 	} catch (err) {
 		console.error('Failed to save play:', err);
 		alert('Failed to save play. Please try again.');

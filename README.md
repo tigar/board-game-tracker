@@ -77,11 +77,11 @@ Set `VITE_API_URL` environment variable to your Worker URL during build.
 
 
 ## TODOs
-- [ ] Add separate "log game outside of collection" button
+- [ ] Add separate "log game outside of collection" button with separate modal
 - [ ] Improve stats tracking
 - [ ] Redo color scheme and component styling
-- [ ] Set-up demo endpoint
-- [ ] Configure OAuth for actual deployment with "view only" endpoint
+- [ ] Set-up demo endpoint with mock data
+- [ ] Configure OAuth for actual deployment with "view only" endpoint (light pswd protection on view only)
 
 ## License
 

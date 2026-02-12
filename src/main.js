@@ -110,7 +110,7 @@ function render(container) {
 
 	// Modal (if open)
 	if (state.showAddPlayModal) {
-		const modal = PlayForm(state.games, hideAddPlayModal, handleAddPlay);
+		const modal = PlayForm(state.games, state.plays, hideAddPlayModal, handleAddPlay);
 		document.body.appendChild(modal);
 	}
 }
