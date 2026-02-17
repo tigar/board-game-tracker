@@ -1,6 +1,6 @@
 import { gamesApi, playsApi, statsApi } from './api.js';
 import { LogPlayButton } from './components/LogPlayButton.js';
-import { PlayForm } from './components/PlayForm.js';
+import { PlayForm } from './components/PlayForm/index.js';
 import { PlayList } from './components/PlayList.js';
 import { SearchBar } from './components/SearchBar.js';
 import { Stats } from './components/Stats.js';
