@@ -135,7 +135,7 @@
     "name": "Daybreak",
     "is_expansion": false,
     "parent_game_id": null,
-    "co_op": false,
+    "co_op": true,
     "min_players": 1,
     "max_players": 4,
     "playing_time": 120,
