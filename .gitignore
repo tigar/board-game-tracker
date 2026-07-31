@@ -31,6 +31,7 @@ Thumbs.db
 
 # Claude
 .claude/
+.playwright-mcp/
 
 # Testing
 coverage/
@@ -38,3 +39,4 @@ coverage/
 # Local
 *.log
 *.local
+FEATURE_REQUESTS.md
