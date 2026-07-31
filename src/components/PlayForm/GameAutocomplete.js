@@ -54,25 +54,30 @@ export function GameAutocomplete({ games, plays, onSelect }) {
 				'absolute z-20 w-full mt-1 bg-white border-2 border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto',
 		});
 
+		const optionClassName = (isHighlighted) =>
+			`w-full text-left px-3 py-2 text-sm transition-colors ${
+				isHighlighted ? 'bg-primary-50 text-primary-600' : 'hover:bg-slate-50 text-slate-700'
+			}`;
+
 		for (let i = 0; i < filteredGames.length; i++) {
 			const game = filteredGames[i];
-			const isHighlighted = i === currentState.highlightedIndex;
 			const option = h(
 				'button',
 				{
 					type: 'button',
-					className: `w-full text-left px-3 py-2 text-sm transition-colors ${
-						isHighlighted
-							? 'bg-primary-50 text-primary-600'
-							: 'hover:bg-slate-50 text-slate-700'
-					}`,
+					className: optionClassName(i === currentState.highlightedIndex),
 					onmousedown: async (e) => {
 						e.preventDefault(); // Prevent blur before click
 						await onSelect(game);
 					},
 					onmouseenter: () => {
 						updateFormState({ highlightedIndex: i });
-						updateDropdown();
+						// Restyle in place rather than rebuilding the dropdown: replacing the
+						// hovered button mid-hover retriggers mouseenter on its replacement,
+						// causing a rebuild loop that swallows the eventual click.
+						for (const [j, child] of [...dropdown.children].entries()) {
+							child.className = optionClassName(j === i);
+						}
 					},
 				},
 				game.name

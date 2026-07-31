@@ -55,7 +55,7 @@ export function createElement(tag, attrs = {}, ...children) {
 	for (const [key, value] of Object.entries(attrs)) {
 		if (key === 'className') {
 			el.className = value;
-		} else if (key === 'onclick' || key === 'onchange' || key === 'onsubmit' || key === 'oninput') {
+		} else if (key.startsWith('on') && typeof value === 'function') {
 			el.addEventListener(key.slice(2), value);
 		} else if (key === 'dataset') {
 			for (const [dataKey, dataValue] of Object.entries(value)) {
