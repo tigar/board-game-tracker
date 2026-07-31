@@ -7,6 +7,7 @@ import { getMostPlayedGames } from './formUtils.js';
  * @property {import('../../types.js').Game[]} games - Available games to search
  * @property {import('../../types.js').PlayWithGame[]} plays - All plays for calculating most played
  * @property {(game: import('../../types.js').Game) => Promise<void>} onSelect - Called when a game is selected
+ * @property {() => void} onClear - Called when the input no longer matches the selected game
  */
 
 /**
@@ -14,7 +15,7 @@ import { getMostPlayedGames } from './formUtils.js';
  * @param {GameAutocompleteProps} props
  * @returns {HTMLElement}
  */
-export function GameAutocomplete({ games, plays, onSelect }) {
+export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 	const formState = getFormState();
 
 	const wrapper = h('div', { className: 'mb-5' });
@@ -115,6 +116,10 @@ export function GameAutocomplete({ games, plays, onSelect }) {
 						selectedExpansionIds: [],
 						isCoOp: currentState.newGameCoOp,
 					});
+					// Selection cleared: re-render the whole form so the co-op toggle
+					// and other game-dependent fields reappear, not just the dropdown.
+					onClear();
+					return;
 				}
 			}
 			updateDropdown();

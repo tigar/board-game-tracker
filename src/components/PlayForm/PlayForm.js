@@ -83,6 +83,9 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	 */
 	const rerenderForm = () => {
 		const modal = form.parentElement;
+		const activeInput = document.activeElement;
+		const wasGameInputFocused = activeInput && activeInput.id === 'game';
+		const cursorPosition = wasGameInputFocused ? activeInput.selectionStart : null;
 
 		// Remove old form
 		form.remove();
@@ -93,6 +96,15 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 		const newForm = newModal.querySelector('form');
 
 		modal.appendChild(newForm);
+
+		// Rebuilding the form drops focus; restore it so typing isn't interrupted
+		if (wasGameInputFocused) {
+			const newGameInput = newForm.querySelector('#game');
+			if (newGameInput) {
+				newGameInput.focus();
+				newGameInput.setSelectionRange(cursorPosition, cursorPosition);
+			}
+		}
 	};
 
 	// Game selection with autocomplete
@@ -102,6 +114,7 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 		onSelect: async (game) => {
 			await selectGame(game, rerenderForm);
 		},
+		onClear: rerenderForm,
 	});
 	form.appendChild(gameAutocomplete);
 
