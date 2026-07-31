@@ -18,28 +18,23 @@ export function ExpansionPicker({ expansions, selectedIds, onChange }) {
 	}
 
 	const wrapper = h('div', { className: 'mb-5' });
-	wrapper.appendChild(
-		h(
-			'label',
-			{ className: 'block mb-2 text-sm font-semibold text-slate-900' },
-			'Expansions Used'
-		)
-	);
+	wrapper.appendChild(h('label', { className: 'label mb-2' }, 'Expansions Used'));
 
-	const optionsContainer = h('div', { className: 'flex flex-col gap-2' });
+	// Rows stack into one block, sharing each divider rather than doubling it
+	const optionsContainer = h('div', { className: 'flex flex-col' });
 
 	for (const exp of expansions) {
 		const isSelected = selectedIds.includes(exp.id);
 		const expLabel = h(
 			'label',
 			{
-				className: `flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-					isSelected ? 'border-primary-500 bg-primary-50' : 'border-slate-200'
+				className: `flex cursor-pointer items-center gap-3 border border-ink px-3 py-2.5 -mt-px first:mt-0 ${
+					isSelected ? 'bg-accent' : ''
 				}`,
 			},
 			h('input', {
 				type: 'checkbox',
-				className: 'w-5 h-5 cursor-pointer',
+				className: 'h-4 w-4 cursor-pointer accent-ink',
 				checked: isSelected,
 				onchange: () => {
 					if (isSelected) {
@@ -49,7 +44,7 @@ export function ExpansionPicker({ expansions, selectedIds, onChange }) {
 					}
 				},
 			}),
-			h('span', { className: 'font-medium text-sm' }, exp.name)
+			h('span', { className: 'font-mono text-xs' }, exp.name)
 		);
 		optionsContainer.appendChild(expLabel);
 	}

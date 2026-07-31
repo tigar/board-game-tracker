@@ -1,66 +1,79 @@
 import { formatDate, formatPlace, h } from '../utils.js';
 
 /**
- * Create a play item element
+ * Create the result chip for a play
+ * @param {string} placeText
+ * @param {boolean} isCoOp
+ * @param {number | null | undefined} place
+ * @returns {HTMLElement}
+ */
+function ResultChip(placeText, isCoOp, place) {
+	const isWin = place === 1;
+	const isCoOpLoss = isCoOp && place === -1;
+
+	let tone = 'border-ink text-ink';
+	if (isCoOp && isWin) {
+		tone = 'border-ok bg-ok text-raised';
+	} else if (isCoOpLoss) {
+		tone = 'border-bad bg-bad text-raised';
+	} else if (isWin) {
+		tone = 'border-ink bg-accent text-ink';
+	}
+
+	return h(
+		'span',
+		{
+			className: `inline-block border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] ${tone}`,
+		},
+		placeText
+	);
+}
+
+/**
+ * Create a play row element
  * @param {import('../types.js').PlayWithGame} play
  * @param {(id: string) => void} onDelete
  * @returns {HTMLElement}
  */
 function PlayItem(play, onDelete) {
 	const placeText = formatPlace(play.place, play.game_co_op);
-	const isWin = play.game_co_op ? play.place === 1 : play.place === 1;
-	const isLoss = play.game_co_op && play.place === -1;
-
-	const metaItems = [
-		h('span', {}, formatDate(play.date_played)),
-		h('span', {}, '•'),
-		h('span', {}, `${play.number_of_players}p`),
-	];
-
-	if (placeText) {
-		metaItems.push(h('span', {}, '•'));
-		metaItems.push(
-			h(
-				'span',
-				{
-					className: `font-semibold px-2 py-0.5 rounded text-xs ${
-						isWin
-							? 'bg-green-100 text-green-800'
-							: isLoss
-								? 'bg-red-100 text-red-800'
-								: 'bg-slate-100 text-slate-600'
-					}`,
-				},
-				placeText
-			)
-		);
-	}
 
 	return h(
 		'div',
-		{
-			className: 'bg-white rounded-xl p-4 shadow-sm flex justify-between items-center gap-3',
-		},
+		{ className: 'ledger-row border-b border-ink last:border-b-0 hover:bg-raised' },
 		h(
 			'div',
-			{ className: 'flex-1 min-w-0' },
-			h(
-				'div',
-				{
-					className: 'text-base font-semibold text-slate-900 mb-1 truncate',
-				},
-				play.game_name
-			),
-			h('div', { className: 'flex items-center gap-2 text-sm text-slate-500' }, ...metaItems)
+			{ className: 'ledger-date font-mono text-xs tabular-nums text-muted' },
+			formatDate(play.date_played)
 		),
 		h(
-			'button',
-			{
-				className:
-					'px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors whitespace-nowrap',
-				onclick: () => onDelete(play.id),
-			},
-			'Delete'
+			'div',
+			{ className: 'ledger-game' },
+			h(
+				'span',
+				{
+					className:
+						'block truncate font-display text-[19px] font-bold leading-tight [font-stretch:82%]',
+				},
+				play.game_name
+			)
+		),
+		h(
+			'div',
+			{ className: 'ledger-players font-mono text-xs tabular-nums text-muted' },
+			`${play.number_of_players}P`
+		),
+		h(
+			'div',
+			{ className: 'ledger-result' },
+			placeText
+				? ResultChip(placeText, play.game_co_op, play.place)
+				: h('span', { className: 'font-mono text-[10px] text-muted' }, '—')
+		),
+		h(
+			'div',
+			{ className: 'ledger-delete' },
+			h('button', { type: 'button', className: 'link', onclick: () => onDelete(play.id) }, 'delete')
 		)
 	);
 }
@@ -72,10 +85,14 @@ function PlayItem(play, onDelete) {
  */
 function EmptyState(searchQuery) {
 	const message = searchQuery
-		? `No plays found matching "${searchQuery}"`
-		: 'No plays yet. Tap "Log Play" to get started';
+		? `No records match "${searchQuery}"`
+		: 'No records yet — log a play to start the ledger';
 
-	return h('div', { className: 'text-center py-12 text-slate-500' }, h('p', {}, message));
+	return h(
+		'div',
+		{ className: 'px-4 py-16 font-mono text-xs uppercase tracking-[0.16em] text-muted' },
+		message
+	);
 }
 
 /**
@@ -90,9 +107,5 @@ export function PlayList(plays, searchQuery, onDelete) {
 		return EmptyState(searchQuery);
 	}
 
-	return h(
-		'div',
-		{ className: 'flex flex-col gap-3' },
-		...plays.map((play) => PlayItem(play, onDelete))
-	);
+	return h('div', {}, ...plays.map((play) => PlayItem(play, onDelete)));
 }

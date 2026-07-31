@@ -2,7 +2,146 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom animations */
+@layer base {
+	:root {
+		--paper: #dad7d0;
+		--raised: #e8e5de;
+		--ink: #000000;
+		--accent: #ff5a00;
+	}
+
+	/* Hard edges want real pixels, not smoothed ones. */
+	html {
+		-webkit-font-smoothing: auto;
+		-moz-osx-font-smoothing: auto;
+		font-synthesis: none;
+	}
+
+	::selection {
+		background: var(--accent);
+		color: var(--ink);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+}
+
+@layer components {
+	.label {
+		@apply block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted;
+	}
+
+	.field {
+		@apply w-full border border-ink bg-raised px-3 py-2.5 font-mono text-sm text-ink;
+	}
+
+	.field::placeholder {
+		@apply text-muted;
+	}
+
+	.btn {
+		@apply border border-ink bg-paper px-4 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-ink;
+	}
+
+	.btn:hover {
+		@apply bg-ink text-paper;
+	}
+
+	.btn-accent {
+		@apply bg-accent;
+	}
+
+	.btn-accent:hover {
+		@apply bg-ink text-paper;
+	}
+
+	/* Buttons that share an edge rather than carrying their own box. */
+	.btn-flush {
+		border-width: 0;
+	}
+
+	.btn-flush + .btn-flush {
+		border-left-width: 1px;
+	}
+
+	.toggle {
+		@apply border border-ink bg-transparent px-3 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-ink;
+	}
+
+	.toggle:hover {
+		@apply bg-raised;
+	}
+
+	.toggle--on,
+	.toggle--on:hover {
+		@apply bg-accent;
+	}
+
+	.link {
+		@apply font-mono text-xs text-ink underline underline-offset-[3px];
+	}
+
+	.link:hover {
+		@apply text-accent;
+	}
+
+	/* The ledger reads as a table on desktop and as stacked records on mobile:
+	   title across the top, metadata beneath it, delete spanning both rows. */
+	.ledger-row {
+		display: grid;
+		grid-template-columns: auto auto 1fr auto;
+		align-items: center;
+	}
+
+	.ledger-game {
+		grid-area: 1 / 1 / 2 / 4;
+		min-width: 0;
+		padding: 0.875rem 0.75rem 0.375rem;
+	}
+
+	.ledger-date {
+		grid-area: 2 / 1 / 3 / 2;
+		padding: 0 0 0.6875rem 0.75rem;
+	}
+
+	.ledger-players {
+		grid-area: 2 / 2 / 3 / 3;
+		padding: 0 0 0.6875rem 0.75rem;
+	}
+
+	.ledger-result {
+		grid-area: 2 / 3 / 3 / 4;
+		padding: 0 0 0.6875rem 0.75rem;
+	}
+
+	.ledger-delete {
+		grid-area: 1 / 4 / 3 / 5;
+		padding: 0 0.75rem;
+		text-align: right;
+	}
+
+	@media (min-width: 640px) {
+		.ledger-row {
+			grid-template-columns: 7rem minmax(0, 1fr) 3.25rem auto 4.5rem;
+		}
+
+		.ledger-game,
+		.ledger-date,
+		.ledger-players,
+		.ledger-result,
+		.ledger-delete {
+			grid-area: auto;
+			padding: 1rem 0.75rem;
+		}
+
+		.ledger-delete {
+			text-align: right;
+		}
+	}
+}
+
 @keyframes fadeIn {
 	from {
 		opacity: 0;
@@ -12,34 +151,12 @@
 	}
 }
 
-@keyframes slideUp {
-	from {
-		transform: translateY(100%);
-	}
-	to {
-		transform: translateY(0);
-	}
-}
-
-@keyframes scaleIn {
-	from {
-		opacity: 0;
-		transform: scale(0.95);
-	}
-	to {
-		opacity: 1;
-		transform: scale(1);
-	}
-}
-
 .animate-fadeIn {
-	animation: fadeIn 0.2s ease-out;
+	animation: fadeIn 0.08s linear;
 }
 
-.animate-slideUp {
-	animation: slideUp 0.3s ease-out;
-}
-
-.animate-scaleIn {
-	animation: scaleIn 0.3s ease-out;
+@media (prefers-reduced-motion: reduce) {
+	.animate-fadeIn {
+		animation: none;
+	}
 }

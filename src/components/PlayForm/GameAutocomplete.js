@@ -19,13 +19,7 @@ export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 	const formState = getFormState();
 
 	const wrapper = h('div', { className: 'mb-5' });
-	wrapper.appendChild(
-		h(
-			'label',
-			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'game' },
-			'Game'
-		)
-	);
+	wrapper.appendChild(h('label', { className: 'label mb-2', for: 'game' }, 'Game'));
 
 	// Autocomplete wrapper
 	const autocompleteWrapper = h('div', { className: 'relative' });
@@ -50,14 +44,15 @@ export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 			return;
 		}
 
+		// -mt-px so the dropdown shares the input's bottom rule instead of doubling it
 		const dropdown = h('div', {
 			className:
-				'absolute z-20 w-full mt-1 bg-white border-2 border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto',
+				'absolute z-20 w-full -mt-px max-h-48 overflow-y-auto border border-ink bg-paper',
 		});
 
 		const optionClassName = (isHighlighted) =>
-			`w-full text-left px-3 py-2 text-sm transition-colors ${
-				isHighlighted ? 'bg-primary-50 text-primary-600' : 'hover:bg-slate-50 text-slate-700'
+			`w-full border-t border-ink first:border-t-0 px-3 py-2 text-left font-mono text-xs ${
+				isHighlighted ? 'bg-ink text-paper' : 'text-ink hover:bg-raised'
 			}`;
 
 		for (let i = 0; i < filteredGames.length; i++) {
@@ -93,9 +88,8 @@ export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 	const gameInput = h('input', {
 		id: 'game',
 		type: 'text',
-		className:
-			'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors',
-		placeholder: 'Search or add a game...',
+		className: 'field',
+		placeholder: 'Search or add a game…',
 		value: formState.gameInputText,
 		autocomplete: 'off',
 		oninput: (e) => {
@@ -187,21 +181,15 @@ export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 	const mostPlayed = getMostPlayedGames(plays, games, 3);
 	if (mostPlayed.length > 0) {
 		const suggestionsContainer = h('div', { className: 'mt-2' });
-		const suggestionsLabel = h(
-			'span',
-			{ className: 'text-xs text-slate-500' },
-			'Quick picks: '
-		);
-		suggestionsContainer.appendChild(suggestionsLabel);
+		suggestionsContainer.appendChild(h('span', { className: 'label' }, 'Quick picks'));
 
-		const suggestionsButtons = h('div', { className: 'flex flex-wrap gap-1 mt-1' });
+		const suggestionsButtons = h('div', { className: 'mt-1.5 flex flex-wrap gap-1.5' });
 		for (const game of mostPlayed) {
 			const btn = h(
 				'button',
 				{
 					type: 'button',
-					className:
-						'px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors',
+					className: 'toggle px-2 py-1 normal-case tracking-normal',
 					onclick: async () => {
 						await onSelect(game);
 					},

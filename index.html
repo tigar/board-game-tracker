@@ -2,22 +2,41 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-		<meta name="theme-color" content="#6366f1" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#FF5A00" />
 		<title>Board Game Tracker</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400..700&display=swap"
+			rel="stylesheet"
+		/>
 		<link rel="stylesheet" href="/src/styles/main.css" />
 	</head>
-	<body class="bg-slate-100 text-slate-900 antialiased">
+	<body class="bg-paper text-ink">
 		<div id="app" class="min-h-screen flex flex-col">
-			<!-- Header -->
-			<header class="bg-primary-500 text-white px-4 py-4 shadow-md sticky top-0 z-50 sm:px-6 sm:py-5">
-				<h1 class="text-xl font-bold tracking-tight sm:text-2xl">Board Game Tracker</h1>
+			<!-- Masthead -->
+			<header
+				class="bg-ink text-paper border-b-4 border-ink sticky top-0 z-50 flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-5 sm:px-6"
+			>
+				<h1
+					class="font-display text-2xl font-extrabold uppercase leading-none tracking-tight [font-stretch:70%] sm:text-[26px]"
+				>
+					Board Game Tracker
+				</h1>
+				<span
+					id="header-slug"
+					class="mr-auto font-mono text-[10px] tracking-[0.16em] text-[#8E8A80]"
+				></span>
+				<div id="header-action" class="w-full sm:w-auto"></div>
 			</header>
 
 			<!-- Main content -->
-			<main id="main" class="flex-1 p-4 max-w-xl w-full mx-auto sm:p-6">
+			<main id="main" class="flex-1 w-full max-w-screen-2xl mx-auto border-x border-ink">
 				<!-- Loading state -->
-				<div id="loading" class="text-center py-12 text-slate-500 text-lg">Loading...</div>
+				<div id="loading" class="px-4 py-16 font-mono text-xs tracking-[0.16em] text-muted">
+					LOADING…
+				</div>
 			</main>
 		</div>
 

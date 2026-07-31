@@ -1,19 +1,26 @@
 import { h } from '../utils.js';
 
 /**
- * Create a stat card element
- * @param {string} value
+ * Create a stat cell. The label sits in a filled block above the figure.
+ * @param {HTMLElement | string} value
  * @param {string} label
+ * @param {string} blockClassName - Fill for the label block
+ * @param {string} [cellClassName] - Extra layout classes for this cell
  * @returns {HTMLElement}
  */
-function StatCard(value, label) {
+function StatCell(value, label, blockClassName, cellClassName = '') {
 	return h(
 		'div',
-		{
-			className: 'bg-white p-5 rounded-xl shadow-sm text-center',
-		},
-		h('div', { className: 'text-3xl font-bold text-slate-900 mb-1' }, value),
-		h('div', { className: 'text-sm font-medium text-slate-500' }, label)
+		{ className: `border-l border-ink first:border-l-0 pb-4 ${cellClassName}` },
+		h('div', { className: `label mb-3 px-4 py-1.5 ${blockClassName}` }, label),
+		h(
+			'div',
+			{
+				className:
+					'px-4 font-display font-extrabold leading-[0.92] tracking-tight tabular-nums [font-stretch:66%] text-[clamp(2.5rem,7vw,4.75rem)]',
+			},
+			value
+		)
 	);
 }
 
@@ -38,30 +45,27 @@ function getUniqueGamesInDays(plays, days) {
 }
 
 /**
- * Create unique games stat card with 30/90/365 day breakdown
+ * Create unique games stat cell with 30/90/365 day breakdown
  * @param {import('../types.js').PlayWithGame[]} plays
  * @returns {HTMLElement}
  */
-function UniqueGamesCard(plays) {
-	const unique30 = getUniqueGamesInDays(plays, 30);
-	const unique90 = getUniqueGamesInDays(plays, 90);
-	const unique365 = getUniqueGamesInDays(plays, 365);
+function UniqueGamesCell(plays) {
+	const separator = () => h('span', { className: 'text-muted font-normal text-[0.62em]' }, '/');
 
-	return h(
-		'div',
-		{
-			className: 'bg-white p-5 rounded-xl shadow-sm text-center',
-		},
+	return StatCell(
 		h(
-			'div',
-			{ className: 'text-3xl font-bold mb-1' },
-			h('span', { className: 'text-red-500' }, String(unique30)),
-			' / ',
-			h('span', { className: 'text-green-500' }, String(unique90)),
-			' / ',
-			h('span', { className: 'text-blue-500' }, String(unique365))
+			'span',
+			{},
+			h('span', { className: 'text-accent' }, String(getUniqueGamesInDays(plays, 30))),
+			separator(),
+			String(getUniqueGamesInDays(plays, 90)),
+			separator(),
+			String(getUniqueGamesInDays(plays, 365))
 		),
-		h('div', { className: 'text-sm font-medium text-slate-500' }, 'Unique (30/90/365d)')
+		'Unique 30 / 90 / 365d',
+		'bg-accent text-ink',
+		// Its label is the longest, so it takes a full row of its own on mobile
+		'col-span-2 border-l-0 border-t border-ink sm:col-span-1 sm:border-l sm:border-t-0'
 	);
 }
 
@@ -74,11 +78,9 @@ function UniqueGamesCard(plays) {
 export function Stats(stats, plays) {
 	return h(
 		'div',
-		{
-			className: 'grid grid-cols-3 gap-3 mb-5',
-		},
-		StatCard(String(stats.total_plays), 'Plays'),
-		StatCard(String(stats.total_games_played), 'Games'),
-		UniqueGamesCard(plays)
+		{ className: 'grid grid-cols-2 border-b border-ink sm:grid-cols-3' },
+		StatCell(String(stats.total_plays), 'Total plays', 'bg-accent text-ink'),
+		StatCell(String(stats.total_games_played), 'Games played', 'bg-ink text-paper'),
+		UniqueGamesCell(plays)
 	);
 }

@@ -10,107 +10,50 @@ import { getOrdinalSuffix } from './formUtils.js';
  */
 
 /**
+ * Create one result option button
+ * @param {string} text
+ * @param {boolean} isSelected
+ * @param {() => void} onClick
+ * @returns {HTMLElement}
+ */
+function ResultOption(text, isSelected, onClick) {
+	return h(
+		'button',
+		{
+			type: 'button',
+			className: `toggle px-3 py-2 ${isSelected ? 'toggle--on' : ''}`,
+			onclick: onClick,
+		},
+		text
+	);
+}
+
+/**
  * Result/place picker for competitive or co-op games
  * @param {ResultPickerProps} props
  * @returns {HTMLElement}
  */
 export function ResultPicker({ isCoOp, numberOfPlayers, place, onChange }) {
 	const wrapper = h('div', { className: 'mb-5' });
-	wrapper.appendChild(
-		h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900' }, 'Result')
-	);
+	wrapper.appendChild(h('label', { className: 'label mb-2' }, 'Result'));
+
+	const resultOptions = h('div', {
+		className: isCoOp ? 'grid grid-cols-3 gap-1.5' : 'flex flex-wrap gap-1.5',
+	});
 
 	if (isCoOp) {
-		// Co-op: Won / Lost / No result
-		const resultOptions = h('div', { className: 'grid grid-cols-3 gap-2' });
-
-		const wonBtn = h(
-			'button',
-			{
-				type: 'button',
-				className: `py-3 px-4 border-2 rounded-lg font-medium text-sm transition-all ${
-					place === 1
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
-				onclick: () => onChange(1),
-			},
-			'Won'
-		);
-		resultOptions.appendChild(wonBtn);
-
-		const lostBtn = h(
-			'button',
-			{
-				type: 'button',
-				className: `py-3 px-4 border-2 rounded-lg font-medium text-sm transition-all ${
-					place === -1
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
-				onclick: () => onChange(-1),
-			},
-			'Lost'
-		);
-		resultOptions.appendChild(lostBtn);
-
-		const noneBtn = h(
-			'button',
-			{
-				type: 'button',
-				className: `py-3 px-4 border-2 rounded-lg font-medium text-sm transition-all ${
-					place === null
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
-				onclick: () => onChange(null),
-			},
-			'No result'
-		);
-		resultOptions.appendChild(noneBtn);
-
-		wrapper.appendChild(resultOptions);
+		resultOptions.appendChild(ResultOption('Won', place === 1, () => onChange(1)));
+		resultOptions.appendChild(ResultOption('Lost', place === -1, () => onChange(-1)));
+		resultOptions.appendChild(ResultOption('No result', place === null, () => onChange(null)));
 	} else {
-		// Competitive: 1st, 2nd, 3rd, ... up to number of players, plus "No result"
-		const resultOptions = h('div', { className: 'flex flex-wrap gap-2' });
-
-		// Generate place buttons
 		for (let i = 1; i <= numberOfPlayers; i++) {
-			const suffix = getOrdinalSuffix(i);
-			const btn = h(
-				'button',
-				{
-					type: 'button',
-					className: `py-2 px-3 border-2 rounded-lg font-medium text-sm transition-all ${
-						place === i
-							? 'border-primary-500 bg-primary-50 text-primary-600'
-							: 'border-slate-200 text-slate-600'
-					}`,
-					onclick: () => onChange(i),
-				},
-				`${i}${suffix}`
+			resultOptions.appendChild(
+				ResultOption(`${i}${getOrdinalSuffix(i)}`, place === i, () => onChange(i))
 			);
-			resultOptions.appendChild(btn);
 		}
-
-		// No result button
-		const noneBtn = h(
-			'button',
-			{
-				type: 'button',
-				className: `py-2 px-3 border-2 rounded-lg font-medium text-sm transition-all ${
-					place === null
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
-				onclick: () => onChange(null),
-			},
-			'None'
-		);
-		resultOptions.appendChild(noneBtn);
-
-		wrapper.appendChild(resultOptions);
+		resultOptions.appendChild(ResultOption('None', place === null, () => onChange(null)));
 	}
 
+	wrapper.appendChild(resultOptions);
 	return wrapper;
 }

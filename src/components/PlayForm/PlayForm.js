@@ -33,8 +33,9 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	const formState = getFormState();
 
 	const backdrop = h('div', {
+		'data-modal': '',
 		className:
-			'fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 animate-fadeIn',
+			'fixed inset-0 bg-black/55 flex items-end sm:items-center justify-center z-50 animate-fadeIn',
 	});
 
 	// Backdrop close button (invisible, covers backdrop but behind modal)
@@ -47,30 +48,33 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	backdrop.appendChild(backdropClose);
 
 	const modal = h('div', {
+		'data-modal-panel': '',
 		className:
-			'relative bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto z-10',
+			'relative z-10 w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-paper border-y-2 sm:border-2 border-ink',
 	});
 	backdrop.appendChild(modal);
 
 	// Header
 	const header = h(
 		'div',
-		{ className: 'flex justify-between items-center mb-6' },
-		h('h2', { className: 'text-2xl font-bold text-slate-900' }, 'Log a Play'),
+		{ className: 'sticky top-0 z-10 flex items-center justify-between bg-ink px-3 py-2.5 text-paper' },
+		h('h2', { className: 'font-mono text-[11px] font-bold uppercase tracking-[0.16em]' }, 'Log a play'),
 		h(
 			'button',
 			{
-				className:
-					'w-9 h-9 bg-slate-100 rounded-full text-xl text-slate-500 flex items-center justify-center hover:bg-slate-200 transition-colors',
+				type: 'button',
+				className: 'font-mono text-xs font-bold text-paper hover:text-accent',
+				'aria-label': 'Close',
 				onclick: onClose,
 			},
-			'×'
+			'[×]'
 		)
 	);
 	modal.appendChild(header);
 
 	// Form
 	const form = h('form', {
+		className: 'p-4',
 		onsubmit: async (e) => {
 			e.preventDefault();
 			await handleSubmit(onSubmit, onClose);
@@ -92,7 +96,7 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 
 		// Create new form and append to modal (pass true to preserve state)
 		const tempBackdrop = PlayForm(games, plays, onClose, onSubmit, true);
-		const newModal = tempBackdrop.querySelector('.bg-white');
+		const newModal = tempBackdrop.querySelector('[data-modal-panel]');
 		const newForm = newModal.querySelector('form');
 
 		modal.appendChild(newForm);
@@ -121,20 +125,14 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	// Co-op toggle (only for new games)
 	if (!formState.selectedGameId) {
 		const coopGroup = h('div', { className: 'mb-5' });
-		coopGroup.appendChild(
-			h('label', { className: 'block mb-2 text-sm font-semibold text-slate-900' }, 'Game Type')
-		);
+		coopGroup.appendChild(h('label', { className: 'label mb-2' }, 'Game Type'));
 		const coopOptions = h('div', { className: 'flex gap-2' });
 
 		const competitiveBtn = h(
 			'button',
 			{
 				type: 'button',
-				className: `flex-1 py-3 px-4 border-2 rounded-lg font-medium text-sm transition-all ${
-					!formState.newGameCoOp
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
+				className: `toggle flex-1 ${!formState.newGameCoOp ? 'toggle--on' : ''}`,
 				onclick: () => {
 					updateFormState({
 						newGameCoOp: false,
@@ -152,11 +150,7 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 			'button',
 			{
 				type: 'button',
-				className: `flex-1 py-3 px-4 border-2 rounded-lg font-medium text-sm transition-all ${
-					formState.newGameCoOp
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
+				className: `toggle flex-1 ${formState.newGameCoOp ? 'toggle--on' : ''}`,
 				onclick: () => {
 					updateFormState({
 						newGameCoOp: true,
@@ -192,19 +186,12 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 
 	// Date input
 	const dateGroup = h('div', {});
-	dateGroup.appendChild(
-		h(
-			'label',
-			{ className: 'block mb-2 text-sm font-semibold text-slate-900', for: 'date' },
-			'Date'
-		)
-	);
+	dateGroup.appendChild(h('label', { className: 'label mb-2', for: 'date' }, 'Date'));
 	dateGroup.appendChild(
 		h('input', {
 			id: 'date',
 			type: 'date',
-			className:
-				'w-full p-3 border-2 border-slate-200 rounded-lg text-base bg-white focus:outline-none focus:border-primary-500 transition-colors',
+			className: 'field',
 			value: formState.dateValue,
 			required: true,
 			onchange: (e) => {
@@ -250,30 +237,13 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	});
 	form.appendChild(resultPicker);
 
-	// Actions
-	const actions = h('div', { className: 'grid grid-cols-2 gap-3 mt-6' });
+	// Actions — the two buttons share the divider between them
+	const actions = h('div', { className: 'mt-6 -mx-4 -mb-4 grid grid-cols-2 border-t border-ink' });
 	actions.appendChild(
-		h(
-			'button',
-			{
-				type: 'button',
-				className:
-					'py-3.5 px-4 bg-slate-100 text-slate-600 rounded-lg font-semibold hover:bg-slate-200 transition-colors',
-				onclick: onClose,
-			},
-			'Cancel'
-		)
+		h('button', { type: 'button', className: 'btn btn-flush', onclick: onClose }, 'Cancel')
 	);
 	actions.appendChild(
-		h(
-			'button',
-			{
-				type: 'submit',
-				className:
-					'py-3.5 px-4 bg-primary-500 text-white rounded-lg font-semibold hover:bg-primary-600 transition-colors',
-			},
-			'Save Play'
-		)
+		h('button', { type: 'submit', className: 'btn btn-accent btn-flush' }, 'Save Play')
 	);
 	form.appendChild(actions);
 

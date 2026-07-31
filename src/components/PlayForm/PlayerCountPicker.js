@@ -15,26 +15,16 @@ import { h } from '../../utils.js';
  */
 export function PlayerCountPicker({ min, max, value, onChange }) {
 	const wrapper = h('div', {});
-	wrapper.appendChild(
-		h(
-			'label',
-			{ className: 'block mb-2 text-sm font-semibold text-slate-900' },
-			'Players'
-		)
-	);
+	wrapper.appendChild(h('label', { className: 'label mb-2' }, 'Players'));
 
-	const playerOptions = h('div', { className: 'flex flex-wrap gap-2' });
+	const playerOptions = h('div', { className: 'flex flex-wrap gap-1.5' });
 
 	for (let i = min; i <= max; i++) {
 		const btn = h(
 			'button',
 			{
 				type: 'button',
-				className: `py-2 px-3 border-2 rounded-lg font-medium text-sm transition-all ${
-					value === i
-						? 'border-primary-500 bg-primary-50 text-primary-600'
-						: 'border-slate-200 text-slate-600'
-				}`,
+				className: `toggle px-3 py-2 ${value === i ? 'toggle--on' : ''}`,
 				onclick: () => onChange(i),
 			},
 			String(i)

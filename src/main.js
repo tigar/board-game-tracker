@@ -85,27 +85,35 @@ function hideAddPlayModal() {
  */
 function render(container) {
 	const state = getState();
+	const headerAction = document.getElementById('header-action');
+	const headerSlug = document.getElementById('header-slug');
 
 	// Clear container
 	container.innerHTML = '';
+	headerAction.innerHTML = '';
 
 	// Loading state
 	if (state.loading) {
-		container.innerHTML = '<div class="text-center py-12 text-slate-500 text-lg">Loading...</div>';
+		container.innerHTML =
+			'<div class="px-4 py-16 font-mono text-xs tracking-[0.16em] text-muted">LOADING…</div>';
+		headerSlug.textContent = '';
 		return;
 	}
+
+	// The masthead carries the record count and the primary action
+	headerSlug.textContent = `REC. ${state.plays.length}`;
+	headerAction.appendChild(LogPlayButton(showAddPlayModal));
 
 	// Stats
 	container.appendChild(Stats(state.stats, state.plays));
 
-	// Log Play button
-	container.appendChild(LogPlayButton(showAddPlayModal));
-
 	// Search bar
-	container.appendChild(SearchBar(state.searchQuery, handleSearch));
+	const filteredPlays = getFilteredPlays();
+	container.appendChild(
+		SearchBar(state.searchQuery, handleSearch, filteredPlays.length, state.plays.length)
+	);
 
 	// Play list
-	const filteredPlays = getFilteredPlays();
 	container.appendChild(PlayList(filteredPlays, state.searchQuery, handleDeletePlay));
 
 	// Modal (if open)
@@ -130,7 +138,7 @@ function init() {
 		render(main);
 
 		// Handle modal cleanup when closed
-		const existingModal = document.querySelector('.fixed.inset-0.bg-black\\/50');
+		const existingModal = document.querySelector('[data-modal]');
 		if (!state.showAddPlayModal && existingModal) {
 			existingModal.remove();
 		}
