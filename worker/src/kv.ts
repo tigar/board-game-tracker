@@ -1,5 +1,5 @@
-import type { Game, Play, PlayWithGame, Stats, UserData } from './types';
 import seedGames from './seed-data.json';
+import type { Game, Person, Play, PlayResult, PlayWithGame, Stats, UserData } from './types';
 
 /**
  * Default user ID (will be replaced with OAuth later)
@@ -17,8 +17,12 @@ function getUserKey(userId: string = DEFAULT_USER_ID): string {
  * Get user data from KV
  */
 export async function getUserData(kv: KVNamespace, userId?: string): Promise<UserData> {
-	const data = await kv.get(getUserKey(userId), 'json');
-	return (data as UserData) || { games: [], plays: [] };
+	const data = (await kv.get(getUserKey(userId), 'json')) as UserData | null;
+	if (!data) return { games: [], plays: [], people: [] };
+
+	// Blobs written before people existed have no such key
+	data.people ??= [];
+	return data;
 }
 
 /**
@@ -129,7 +133,78 @@ export async function deleteGame(kv: KVNamespace, id: string): Promise<void> {
 	await saveUserData(kv, data);
 }
 
+// ============ People ============
+
+/**
+ * Get all people, sorted by name
+ */
+export async function getAllPeople(kv: KVNamespace): Promise<Person[]> {
+	const data = await getUserData(kv);
+	return [...data.people].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Find a person by name, case-insensitively
+ */
+function findPersonByName(people: Person[], name: string): Person | undefined {
+	const wanted = name.trim().toLowerCase();
+	return people.find((p) => p.name.toLowerCase() === wanted);
+}
+
+/**
+ * Resolve names to person IDs against an in-memory people list, appending any
+ * that don't exist yet. Mutates `people` so the caller can save it in the same
+ * write as whatever else it is changing.
+ */
+function resolvePeople(people: Person[], names: string[]): string[] {
+	const ids: string[] = [];
+
+	for (const rawName of names) {
+		const name = rawName.trim();
+		if (!name) continue;
+
+		let person = findPersonByName(people, name);
+		if (!person) {
+			person = { id: generateId(), name, created_at: now() };
+			people.push(person);
+		}
+		if (!ids.includes(person.id)) ids.push(person.id);
+	}
+
+	return ids;
+}
+
 // ============ Plays ============
+
+/**
+ * Work out how a play ended.
+ *
+ * Plays recorded before `result` existed encoded it in `place`, using a
+ * different scheme per game type: co-op used 1/-1 for won/lost, competitive
+ * used a finishing position. Reading through here is what lets the rest of the
+ * codebase ignore that entirely.
+ */
+function resolveResult(play: Play, game?: Game): PlayResult | null {
+	if (play.result !== undefined && play.result !== null) return play.result;
+	if (play.place === undefined || play.place === null) return null;
+
+	if (game?.co_op) {
+		if (play.place === 1) return 'win';
+		return play.place === -1 ? 'loss' : null;
+	}
+	return play.place === 1 ? 'win' : 'loss';
+}
+
+/**
+ * A finishing position only means something for competitive games. Co-op plays
+ * from the old encoding carry a `place` of 1 or -1 that must never be shown as
+ * a placement.
+ */
+function resolvePlace(play: Play, game?: Game): number | null {
+	if (game?.co_op) return null;
+	if (play.place === undefined || play.place === null || play.place < 1) return null;
+	return play.place;
+}
 
 /**
  * Get all plays with game info, optionally filtered by game_id
@@ -137,6 +212,7 @@ export async function deleteGame(kv: KVNamespace, id: string): Promise<void> {
 export async function getAllPlays(kv: KVNamespace, gameId?: string): Promise<PlayWithGame[]> {
 	const data = await getUserData(kv);
 	const gameMap = new Map(data.games.map((g) => [g.id, g]));
+	const peopleMap = new Map(data.people.map((p) => [p.id, p]));
 
 	let plays = data.plays;
 	if (gameId) {
@@ -148,8 +224,14 @@ export async function getAllPlays(kv: KVNamespace, gameId?: string): Promise<Pla
 			const game = gameMap.get(p.game_id);
 			return {
 				...p,
+				result: resolveResult(p, game),
+				place: resolvePlace(p, game),
 				game_name: game?.name || 'Unknown Game',
 				game_co_op: game?.co_op || false,
+				game_sides: game?.sides ?? null,
+				player_names: (p.player_ids || [])
+					.map((id) => peopleMap.get(id)?.name)
+					.filter((name): name is string => Boolean(name)),
 			};
 		})
 		.sort((a, b) => new Date(b.date_played).getTime() - new Date(a.date_played).getTime());
@@ -164,16 +246,24 @@ export async function getPlayById(kv: KVNamespace, id: string): Promise<Play | n
 }
 
 /**
- * Create a new play
+ * Create a new play.
+ *
+ * Any `playerNames` not seen before become people in the same write, so
+ * naming someone at the table never costs a second round trip that could
+ * race this one — the whole store is a single KV value rewritten whole.
  */
 export async function createPlay(
 	kv: KVNamespace,
-	play: Omit<Play, 'id' | 'created_at' | 'updated_at'>
+	play: Omit<Play, 'id' | 'created_at' | 'updated_at'>,
+	playerNames: string[] = []
 ): Promise<string> {
 	const data = await getUserData(kv);
 	const timestamp = now();
+	const resolvedIds = resolvePeople(data.people, playerNames);
+
 	const newPlay: Play = {
 		...play,
+		player_ids: resolvedIds.length > 0 ? resolvedIds : undefined,
 		id: generateId(),
 		created_at: timestamp,
 		updated_at: timestamp,
@@ -227,17 +317,9 @@ export async function getPlayStats(kv: KVNamespace): Promise<Stats> {
 	let losses = 0;
 
 	for (const play of data.plays) {
-		if (play.place === undefined || play.place === null) continue;
-
-		const game = gameMap.get(play.game_id);
-		if (game?.co_op) {
-			// Co-op: 1 = won, -1 = lost
-			if (play.place === 1) wins++;
-			else if (play.place === -1) losses++;
-		} else {
-			// Competitive: 1st place = win
-			if (play.place === 1) wins++;
-		}
+		const result = resolveResult(play, gameMap.get(play.game_id));
+		if (result === 'win') wins++;
+		else if (result === 'loss') losses++;
 	}
 
 	return {

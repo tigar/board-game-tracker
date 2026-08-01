@@ -1,5 +1,15 @@
 import * as kv from './kv';
-import type { Env, Game, Play } from './types';
+import type { Env, Game, Play, PlayResult } from './types';
+
+const PLAY_RESULTS: PlayResult[] = ['win', 'loss', 'draw'];
+
+/**
+ * Keep unrecognised result values out of storage — this is the one field the
+ * whole read path trusts without re-checking.
+ */
+function normaliseResult(value: unknown): PlayResult | null {
+	return PLAY_RESULTS.includes(value as PlayResult) ? (value as PlayResult) : null;
+}
 
 /**
  * CORS headers for API responses
@@ -156,8 +166,20 @@ export default {
 			}
 
 			if (path === '/api/plays' && request.method === 'POST') {
-				const play = (await request.json()) as Omit<Play, 'id' | 'created_at' | 'updated_at'>;
-				const id = await kv.createPlay(env.KV, play);
+				const { player_names, ...play } = (await request.json()) as Omit<
+					Play,
+					'id' | 'created_at' | 'updated_at'
+				> & { player_names?: string[] };
+
+				if (!play.game_id) {
+					return errorResponse('game_id is required');
+				}
+
+				const id = await kv.createPlay(
+					env.KV,
+					{ ...play, result: normaliseResult(play.result) },
+					Array.isArray(player_names) ? player_names : []
+				);
 				return jsonResponse({ id }, 201);
 			}
 
@@ -174,26 +196,32 @@ export default {
 				return jsonResponse({ success: true });
 			}
 
-		// Stats endpoint
-		if (path === '/api/stats' && request.method === 'GET') {
-			const stats = await kv.getPlayStats(env.KV);
-			return jsonResponse(stats);
-		}
+			// People endpoints
+			if (path === '/api/people' && request.method === 'GET') {
+				const people = await kv.getAllPeople(env.KV);
+				return jsonResponse(people);
+			}
 
-		// Seed endpoint - loads games from seed-data.json
-		if (path === '/api/seed' && request.method === 'POST') {
-			const body = (await request.json().catch(() => ({}))) as { mode?: 'replace' | 'merge' };
-			const mode = body.mode === 'replace' ? 'replace' : 'merge';
-			const result = await kv.seedGamesFromCollection(env.KV, mode);
-			return jsonResponse({
-				success: true,
-				mode,
-				...result,
-			});
-		}
+			// Stats endpoint
+			if (path === '/api/stats' && request.method === 'GET') {
+				const stats = await kv.getPlayStats(env.KV);
+				return jsonResponse(stats);
+			}
 
-		// 404 for unknown routes
-		return errorResponse('Not found', 404);
+			// Seed endpoint - loads games from seed-data.json
+			if (path === '/api/seed' && request.method === 'POST') {
+				const body = (await request.json().catch(() => ({}))) as { mode?: 'replace' | 'merge' };
+				const mode = body.mode === 'replace' ? 'replace' : 'merge';
+				const result = await kv.seedGamesFromCollection(env.KV, mode);
+				return jsonResponse({
+					success: true,
+					mode,
+					...result,
+				});
+			}
+
+			// 404 for unknown routes
+			return errorResponse('Not found', 404);
 		} catch (error) {
 			console.error('Worker error:', error);
 			return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500);
