@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.12/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -7,13 +7,15 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": [
-			"**/node_modules",
-			"**/build",
-			"**/dist",
-			"**/.claude",
-			"**/.yarn",
-			"**/.pnp.*"
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/build",
+			"!**/dist",
+			"!**/.claude",
+			"!**/.yarn",
+			"!**/.pnp.*",
+			"!**/vite.config.*.timestamp-*"
 		]
 	},
 	"formatter": {
@@ -22,8 +24,12 @@
 		"indentWidth": 2,
 		"lineWidth": 100
 	},
-	"organizeImports": {
-		"enabled": true
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
 	},
 	"linter": {
 		"enabled": true,
@@ -43,7 +49,7 @@
 	},
 	"overrides": [
 		{
-			"include": ["**/*.ts"],
+			"includes": ["**/*.ts"],
 			"linter": {
 				"rules": {
 					"correctness": {
@@ -62,6 +68,9 @@
 		}
 	},
 	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		},
 		"linter": {
 			"enabled": false
 		}
