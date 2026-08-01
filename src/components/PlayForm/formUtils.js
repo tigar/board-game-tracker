@@ -17,14 +17,3 @@ export function getMostPlayedGames(plays, games, limit = 3) {
 		.sort((a, b) => (playCounts[b.id] || 0) - (playCounts[a.id] || 0))
 		.slice(0, limit);
 }
-
-/**
- * Get ordinal suffix for a number (1st, 2nd, 3rd, etc.)
- * @param {number} n
- * @returns {string}
- */
-export function getOrdinalSuffix(n) {
-	const s = ['th', 'st', 'nd', 'rd'];
-	const v = n % 100;
-	return s[(v - 20) % 10] || s[v] || s[0];
-}

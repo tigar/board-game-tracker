@@ -11,8 +11,15 @@ import { getTodayISO } from '../../utils.js';
  * @property {string[]} selectedExpansionIds
  * @property {string} dateValue
  * @property {number} numberOfPlayers
- * @property {number | null} place - 1=1st, 2=2nd, etc. or 1=won, -1=lost for co-op
+ * @property {import('../../types.js').PlayResult | null} result - How the play ended
+ * @property {number | null} place - Exact finish, 1=1st. Competitive games only.
+ * @property {string | null} side - Which of the game's sides was played
+ * @property {string[]} playerNames - Who was at the table
  * @property {boolean} isCoOp
+ * @property {boolean} advancedOpen - Whether the advanced options are disclosed
+ * @property {string} personInputText - Text in the people autocomplete
+ * @property {boolean} personShowDropdown
+ * @property {number} personHighlightedIndex
  */
 
 /**
@@ -30,8 +37,15 @@ export function createFormState() {
 		selectedExpansionIds: [],
 		dateValue: getTodayISO(),
 		numberOfPlayers: 2,
+		result: null,
 		place: null,
+		side: null,
+		playerNames: [],
 		isCoOp: false,
+		advancedOpen: false,
+		personInputText: '',
+		personShowDropdown: false,
+		personHighlightedIndex: -1,
 	};
 }
 

@@ -79,6 +79,19 @@
 		@apply bg-accent;
 	}
 
+	/* A selected person. Square like everything else; the × is part of the chip. */
+	.chip {
+		@apply inline-flex items-center gap-2 border border-ink bg-accent px-2.5 py-1.5 font-mono text-[11px] font-bold text-ink;
+	}
+
+	.chip-remove {
+		@apply text-[13px] leading-none text-ink;
+	}
+
+	.chip-remove:hover {
+		@apply text-paper;
+	}
+
 	.link {
 		@apply font-mono text-xs text-ink underline underline-offset-[3px];
 	}

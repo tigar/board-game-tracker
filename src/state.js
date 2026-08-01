@@ -7,6 +7,7 @@
  * @property {boolean} loading
  * @property {import('./types.js').Game[]} games
  * @property {import('./types.js').PlayWithGame[]} plays
+ * @property {import('./types.js').Person[]} people
  * @property {import('./types.js').Stats} stats
  * @property {string} searchQuery
  * @property {boolean} showAddPlayModal
@@ -17,6 +18,7 @@ const initialState = {
 	loading: true,
 	games: [],
 	plays: [],
+	people: [],
 	stats: {
 		total_plays: 0,
 		total_games_played: 0,

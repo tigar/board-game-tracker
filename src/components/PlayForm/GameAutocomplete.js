@@ -46,8 +46,7 @@ export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 
 		// -mt-px so the dropdown shares the input's bottom rule instead of doubling it
 		const dropdown = h('div', {
-			className:
-				'absolute z-20 w-full -mt-px max-h-48 overflow-y-auto border border-ink bg-paper',
+			className: 'absolute z-20 w-full -mt-px max-h-48 overflow-y-auto border border-ink bg-paper',
 		});
 
 		const optionClassName = (isHighlighted) =>
@@ -139,10 +138,7 @@ export function GameAutocomplete({ games, plays, onSelect, onClear }) {
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
 				updateFormState({
-					highlightedIndex: Math.min(
-						currentState.highlightedIndex + 1,
-						currentFiltered.length - 1
-					),
+					highlightedIndex: Math.min(currentState.highlightedIndex + 1, currentFiltered.length - 1),
 				});
 				updateDropdown();
 			} else if (e.key === 'ArrowUp') {

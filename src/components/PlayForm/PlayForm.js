@@ -1,36 +1,101 @@
 import { h } from '../../utils.js';
-import { getFormState, updateFormState, resetFormState } from './formState.js';
-import { selectGame, handleSubmit } from './formActions.js';
-import { GameAutocomplete } from './GameAutocomplete.js';
+import { AdvancedOptions } from './AdvancedOptions.js';
 import { ExpansionPicker } from './ExpansionPicker.js';
-import { ResultPicker } from './ResultPicker.js';
+import { handleSubmit, selectGame } from './formActions.js';
+import { getFormState, resetFormState, updateFormState } from './formState.js';
+import { GameAutocomplete } from './GameAutocomplete.js';
+import { PeoplePicker } from './PeoplePicker.js';
+import { PlacementPicker } from './PlacementPicker.js';
 import { PlayerCountPicker } from './PlayerCountPicker.js';
+import { ResultPicker } from './ResultPicker.js';
+import { SidePicker } from './SidePicker.js';
 
 /**
- * @typedef {Object} PlayFormSubmitData
- * @property {string} game_id
- * @property {string} date_played
- * @property {number | undefined} place
- * @property {number} number_of_players
- * @property {string[] | undefined} expansion_ids
+ * @typedef {import('./formActions.js').PlayData} PlayFormSubmitData
  */
+
+/**
+ * The form rebuilds itself on every change, so an ESC listener registered per
+ * build would accumulate. Keeping the live one here means there is only ever
+ * one, however many times the form re-renders.
+ * @type {((e: KeyboardEvent) => void) | null}
+ */
+let escapeHandler = null;
+
+/**
+ * @param {() => void} onEscape
+ */
+function bindEscape(onEscape) {
+	unbindEscape();
+	escapeHandler = (e) => {
+		if (e.key !== 'Escape') return;
+		unbindEscape();
+		onEscape();
+	};
+	document.addEventListener('keydown', escapeHandler);
+}
+
+function unbindEscape() {
+	if (!escapeHandler) return;
+	document.removeEventListener('keydown', escapeHandler);
+	escapeHandler = null;
+}
+
+/**
+ * Capture which field the user is in, so rebuilding the form doesn't
+ * interrupt typing. Text inputs also keep their caret.
+ * @param {HTMLElement} form
+ * @returns {{id: string, start: number | null, end: number | null} | null}
+ */
+function captureFocus(form) {
+	const active = document.activeElement;
+	if (!active || !active.id || !form.contains(active)) return null;
+
+	const isTextInput = active.tagName === 'INPUT' && active.type === 'text';
+	return {
+		id: active.id,
+		start: isTextInput ? active.selectionStart : null,
+		end: isTextInput ? active.selectionEnd : null,
+	};
+}
+
+/**
+ * @param {HTMLElement} form
+ * @param {{id: string, start: number | null, end: number | null} | null} focus
+ */
+function restoreFocus(form, focus) {
+	if (!focus) return;
+	const field = form.querySelector(`#${CSS.escape(focus.id)}`);
+	if (!field) return;
+
+	field.focus();
+	if (focus.start !== null) {
+		field.setSelectionRange(focus.start, focus.end);
+	}
+}
 
 /**
  * Create the play form modal
  * @param {import('../../types.js').Game[]} games - Base games only
  * @param {import('../../types.js').PlayWithGame[]} plays - All plays for calculating most played
+ * @param {import('../../types.js').Person[]} people - Everyone on record
  * @param {() => void} onClose
  * @param {(data: PlayFormSubmitData) => Promise<void>} onSubmit
  * @param {boolean} [isRerender=false] - If true, don't reset form state (used for re-renders)
  * @returns {HTMLElement}
  */
-export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
+export function PlayForm(games, plays, people, onClose, onSubmit, isRerender = false) {
 	// Reset form state only on initial open, not on re-renders
 	if (!isRerender) {
 		resetFormState();
 	}
 
 	const formState = getFormState();
+
+	const closeForm = () => {
+		unbindEscape();
+		onClose();
+	};
 
 	const backdrop = h('div', {
 		'data-modal': '',
@@ -42,7 +107,7 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	const backdropClose = h('button', {
 		type: 'button',
 		className: 'absolute inset-0 w-full h-full cursor-pointer z-0',
-		onclick: onClose,
+		onclick: closeForm,
 		'aria-label': 'Close modal',
 	});
 	backdrop.appendChild(backdropClose);
@@ -57,15 +122,22 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	// Header
 	const header = h(
 		'div',
-		{ className: 'sticky top-0 z-10 flex items-center justify-between bg-ink px-3 py-2.5 text-paper' },
-		h('h2', { className: 'font-mono text-[11px] font-bold uppercase tracking-[0.16em]' }, 'Log a play'),
+		{
+			className:
+				'sticky top-0 z-10 flex items-center justify-between bg-ink px-3 py-2.5 text-paper',
+		},
+		h(
+			'h2',
+			{ className: 'font-mono text-[11px] font-bold uppercase tracking-[0.16em]' },
+			'Log a play'
+		),
 		h(
 			'button',
 			{
 				type: 'button',
 				className: 'font-mono text-xs font-bold text-paper hover:text-accent',
 				'aria-label': 'Close',
-				onclick: onClose,
+				onclick: closeForm,
 			},
 			'[×]'
 		)
@@ -77,7 +149,7 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 		className: 'p-4',
 		onsubmit: async (e) => {
 			e.preventDefault();
-			await handleSubmit(onSubmit, onClose);
+			await handleSubmit(onSubmit, closeForm);
 		},
 	});
 	modal.appendChild(form);
@@ -87,28 +159,18 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 	 */
 	const rerenderForm = () => {
 		const modal = form.parentElement;
-		const activeInput = document.activeElement;
-		const wasGameInputFocused = activeInput && activeInput.id === 'game';
-		const cursorPosition = wasGameInputFocused ? activeInput.selectionStart : null;
+		const focus = captureFocus(form);
 
 		// Remove old form
 		form.remove();
 
 		// Create new form and append to modal (pass true to preserve state)
-		const tempBackdrop = PlayForm(games, plays, onClose, onSubmit, true);
+		const tempBackdrop = PlayForm(games, plays, people, onClose, onSubmit, true);
 		const newModal = tempBackdrop.querySelector('[data-modal-panel]');
 		const newForm = newModal.querySelector('form');
 
 		modal.appendChild(newForm);
-
-		// Rebuilding the form drops focus; restore it so typing isn't interrupted
-		if (wasGameInputFocused) {
-			const newGameInput = newForm.querySelector('#game');
-			if (newGameInput) {
-				newGameInput.focus();
-				newGameInput.setSelectionRange(cursorPosition, cursorPosition);
-			}
-		}
+		restoreFocus(newForm, focus);
 	};
 
 	// Game selection with autocomplete
@@ -134,11 +196,7 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 				type: 'button',
 				className: `toggle flex-1 ${!formState.newGameCoOp ? 'toggle--on' : ''}`,
 				onclick: () => {
-					updateFormState({
-						newGameCoOp: false,
-						isCoOp: false,
-						place: null,
-					});
+					updateFormState({ newGameCoOp: false, isCoOp: false });
 					rerenderForm();
 				},
 			},
@@ -152,11 +210,8 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 				type: 'button',
 				className: `toggle flex-1 ${formState.newGameCoOp ? 'toggle--on' : ''}`,
 				onclick: () => {
-					updateFormState({
-						newGameCoOp: true,
-						isCoOp: true,
-						place: null,
-					});
+					// A co-op has no finishing positions to record
+					updateFormState({ newGameCoOp: true, isCoOp: true, place: null });
 					rerenderForm();
 				},
 			},
@@ -225,36 +280,79 @@ export function PlayForm(games, plays, onClose, onSubmit, isRerender = false) {
 
 	form.appendChild(rowGroup);
 
-	// Result picker
+	// Result — the only outcome field most plays need
 	const resultPicker = ResultPicker({
-		isCoOp: formState.isCoOp,
-		numberOfPlayers: formState.numberOfPlayers,
-		place: formState.place,
-		onChange: (place) => {
-			updateFormState({ place });
+		result: formState.result,
+		onChange: (result) => {
+			// A placement is a more specific claim than the result it implies,
+			// so it can't outlive the result being cleared or contradicted.
+			updateFormState({ result, place: result === null ? null : getFormState().place });
 			rerenderForm();
 		},
 	});
 	form.appendChild(resultPicker);
 
+	const advanced = AdvancedOptions({
+		open: formState.advancedOpen,
+		onToggle: () => {
+			updateFormState({ advancedOpen: !getFormState().advancedOpen });
+			rerenderForm();
+		},
+		children: [
+			formState.isCoOp
+				? null
+				: PlacementPicker({
+						numberOfPlayers: formState.numberOfPlayers,
+						place: formState.place,
+						onChange: (place) => {
+							// Finishing first is a win; anything else isn't
+							updateFormState({
+								place,
+								result: place === null ? getFormState().result : place === 1 ? 'win' : 'loss',
+							});
+							rerenderForm();
+						},
+					}),
+			SidePicker({
+				sides: selectedGame?.sides,
+				side: formState.side,
+				onChange: (side) => {
+					updateFormState({ side });
+					rerenderForm();
+				},
+			}),
+			PeoplePicker({
+				people,
+				playerNames: formState.playerNames,
+				onChange: (playerNames) => {
+					// Naming people can only raise the headcount — logging 2 of the 5
+					// who were there shouldn't quietly rewrite the count to 2.
+					const current = getFormState();
+					const numberOfPlayers = Math.min(
+						Math.max(current.numberOfPlayers, playerNames.length),
+						maxPlayers
+					);
+					updateFormState({ playerNames, numberOfPlayers });
+					rerenderForm();
+				},
+			}),
+		],
+	});
+	if (advanced) {
+		form.appendChild(advanced);
+	}
+
 	// Actions — the two buttons share the divider between them
 	const actions = h('div', { className: 'mt-6 -mx-4 -mb-4 grid grid-cols-2 border-t border-ink' });
 	actions.appendChild(
-		h('button', { type: 'button', className: 'btn btn-flush', onclick: onClose }, 'Cancel')
+		h('button', { type: 'button', className: 'btn btn-flush', onclick: closeForm }, 'Cancel')
 	);
 	actions.appendChild(
 		h('button', { type: 'submit', className: 'btn btn-accent btn-flush' }, 'Save Play')
 	);
 	form.appendChild(actions);
 
-	// ESC key to close
-	const handleKeydown = (e) => {
-		if (e.key === 'Escape') {
-			onClose();
-			document.removeEventListener('keydown', handleKeydown);
-		}
-	};
-	document.addEventListener('keydown', handleKeydown);
+	bindEscape(onClose);
 
 	return backdrop;
 }

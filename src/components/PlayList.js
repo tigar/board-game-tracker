@@ -1,23 +1,18 @@
-import { formatDate, formatPlace, h } from '../utils.js';
+import { formatDate, formatResult, h } from '../utils.js';
 
 /**
  * Create the result chip for a play
- * @param {string} placeText
+ * @param {string} text
+ * @param {import('../types.js').PlayResult | null | undefined} result
  * @param {boolean} isCoOp
- * @param {number | null | undefined} place
  * @returns {HTMLElement}
  */
-function ResultChip(placeText, isCoOp, place) {
-	const isWin = place === 1;
-	const isCoOpLoss = isCoOp && place === -1;
-
+function ResultChip(text, result, isCoOp) {
 	let tone = 'border-ink text-ink';
-	if (isCoOp && isWin) {
-		tone = 'border-ok bg-ok text-raised';
-	} else if (isCoOpLoss) {
+	if (result === 'win') {
+		tone = isCoOp ? 'border-ok bg-ok text-raised' : 'border-ink bg-accent text-ink';
+	} else if (result === 'loss' && isCoOp) {
 		tone = 'border-bad bg-bad text-raised';
-	} else if (isWin) {
-		tone = 'border-ink bg-accent text-ink';
 	}
 
 	return h(
@@ -25,7 +20,7 @@ function ResultChip(placeText, isCoOp, place) {
 		{
 			className: `inline-block border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] ${tone}`,
 		},
-		placeText
+		text
 	);
 }
 
@@ -36,7 +31,8 @@ function ResultChip(placeText, isCoOp, place) {
  * @returns {HTMLElement}
  */
 function PlayItem(play, onDelete) {
-	const placeText = formatPlace(play.place, play.game_co_op);
+	const resultText = formatResult(play);
+	const playerNames = play.player_names || [];
 
 	return h(
 		'div',
@@ -56,7 +52,14 @@ function PlayItem(play, onDelete) {
 						'block truncate font-display text-[19px] font-bold leading-tight [font-stretch:82%]',
 				},
 				play.game_name
-			)
+			),
+			playerNames.length > 0
+				? h(
+						'span',
+						{ className: 'mt-0.5 block truncate font-mono text-[10px] text-muted' },
+						`with ${playerNames.join(', ')}`
+					)
+				: null
 		),
 		h(
 			'div',
@@ -66,8 +69,8 @@ function PlayItem(play, onDelete) {
 		h(
 			'div',
 			{ className: 'ledger-result' },
-			placeText
-				? ResultChip(placeText, play.game_co_op, play.place)
+			resultText
+				? ResultChip(resultText, play.result, play.game_co_op)
 				: h('span', { className: 'font-mono text-[10px] text-muted' }, '—')
 		),
 		h(

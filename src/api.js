@@ -135,8 +135,9 @@ export const playsApi = {
 	getById: (id) => request(`/api/plays/${id}`),
 
 	/**
-	 * Create a new play
-	 * @param {Omit<import('./types.js').Play, 'id' | 'created_at' | 'updated_at'>} play
+	 * Create a new play. `player_names` are resolved to people server-side,
+	 * creating any that don't exist yet.
+	 * @param {Omit<import('./types.js').Play, 'id' | 'created_at' | 'updated_at'> & {player_names?: string[]}} play
 	 * @returns {Promise<{id: string}>}
 	 */
 	create: (play) =>
@@ -166,6 +167,17 @@ export const playsApi = {
 		request(`/api/plays/${id}`, {
 			method: 'DELETE',
 		}),
+};
+
+/**
+ * People API
+ */
+export const peopleApi = {
+	/**
+	 * Get everyone on record, sorted by name
+	 * @returns {Promise<import('./types.js').Person[]>}
+	 */
+	getAll: () => request('/api/people'),
 };
 
 /**

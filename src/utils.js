@@ -24,22 +24,36 @@ export function getTodayISO() {
 }
 
 /**
- * Format place/result for display
- * @param {number | undefined} place
- * @param {boolean} isCoOp
+ * Get ordinal suffix for a number (1st, 2nd, 3rd, etc.)
+ * @param {number} n
  * @returns {string}
  */
-export function formatPlace(place, isCoOp) {
-	if (place === undefined || place === null) return '';
+export function getOrdinalSuffix(n) {
+	const s = ['th', 'st', 'nd', 'rd'];
+	const v = n % 100;
+	return s[(v - 20) % 10] || s[v] || s[0];
+}
 
-	if (isCoOp) {
-		return place === 1 ? 'Won' : place === -1 ? 'Lost' : '';
+/**
+ * Format a play's outcome for display. An exact placement is more specific than
+ * the win/loss it implies, so it wins when both are recorded.
+ * @param {import('./types.js').Play} play
+ * @returns {string}
+ */
+export function formatResult(play) {
+	let text = '';
+	if (play.place) {
+		text = `${play.place}${getOrdinalSuffix(play.place)}`;
+	} else if (play.result === 'win') {
+		text = 'Won';
+	} else if (play.result === 'loss') {
+		text = 'Lost';
+	} else if (play.result === 'draw') {
+		text = 'Draw';
 	}
 
-	// Competitive game - show placement
-	const suffixes = ['th', 'st', 'nd', 'rd'];
-	const v = place % 100;
-	return place + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+	if (!play.side) return text;
+	return text ? `${text} (as ${play.side})` : `As ${play.side}`;
 }
 
 /**

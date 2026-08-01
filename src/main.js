@@ -1,4 +1,4 @@
-import { gamesApi, playsApi, statsApi } from './api.js';
+import { gamesApi, peopleApi, playsApi, statsApi } from './api.js';
 import { LogPlayButton } from './components/LogPlayButton.js';
 import { PlayForm } from './components/PlayForm/index.js';
 import { PlayList } from './components/PlayList.js';
@@ -11,9 +11,10 @@ import { getFilteredPlays, getState, setState, subscribe } from './state.js';
  */
 async function loadData() {
 	try {
-		const [gamesData, playsData, statsData] = await Promise.all([
+		const [gamesData, playsData, peopleData, statsData] = await Promise.all([
 			gamesApi.getAll(),
 			playsApi.getAll(),
+			peopleApi.getAll(),
 			statsApi.get(),
 		]);
 
@@ -23,6 +24,7 @@ async function loadData() {
 		setState({
 			games: baseGames,
 			plays: playsData,
+			people: peopleData,
 			stats: statsData,
 			loading: false,
 		});
@@ -34,7 +36,7 @@ async function loadData() {
 
 /**
  * Handle adding a new play
- * @param {{game_id: string, date_played: string, place: number | undefined, number_of_players: number, expansion_ids: string[] | undefined}} data
+ * @param {import('./components/PlayForm/formActions.js').PlayData} data
  */
 async function handleAddPlay(data) {
 	await playsApi.create(data);
@@ -118,7 +120,7 @@ function render(container) {
 
 	// Modal (if open)
 	if (state.showAddPlayModal) {
-		const modal = PlayForm(state.games, state.plays, hideAddPlayModal, handleAddPlay);
+		const modal = PlayForm(state.games, state.plays, state.people, hideAddPlayModal, handleAddPlay);
 		document.body.appendChild(modal);
 	}
 }

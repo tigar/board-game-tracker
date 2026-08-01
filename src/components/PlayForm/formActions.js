@@ -1,11 +1,14 @@
 import { gamesApi } from '../../api.js';
-import { getFormState, updateFormState, resetFormState } from './formState.js';
+import { getFormState, resetFormState, updateFormState } from './formState.js';
 
 /**
  * @typedef {Object} PlayData
  * @property {string} game_id
  * @property {string} date_played
+ * @property {import('../../types.js').PlayResult | null} result
  * @property {number | undefined} place
+ * @property {string | undefined} side
+ * @property {string[] | undefined} player_names - Resolved to people server-side
  * @property {number} number_of_players
  * @property {string[] | undefined} expansion_ids
  */
@@ -26,6 +29,7 @@ export async function selectGame(game, onRerender) {
 		numberOfPlayers = minPlayers;
 	}
 
+	// Placement and side belong to the game that was selected, not the next one
 	updateFormState({
 		selectedGameId: game.id,
 		gameInputText: game.name,
@@ -34,6 +38,7 @@ export async function selectGame(game, onRerender) {
 		selectedExpansionIds: [],
 		isCoOp: game.co_op || false,
 		place: null,
+		side: null,
 		numberOfPlayers,
 	});
 
@@ -81,7 +86,11 @@ export async function handleSubmit(onSubmit, onClose) {
 		const playData = {
 			game_id: gameId,
 			date_played: formState.dateValue,
-			place: formState.place ?? undefined,
+			result: formState.result,
+			// A finishing position only means something in a competitive game
+			place: formState.isCoOp ? undefined : (formState.place ?? undefined),
+			side: formState.side ?? undefined,
+			player_names: formState.playerNames.length > 0 ? formState.playerNames : undefined,
 			number_of_players: formState.numberOfPlayers,
 			expansion_ids:
 				formState.selectedExpansionIds.length > 0 ? formState.selectedExpansionIds : undefined,
